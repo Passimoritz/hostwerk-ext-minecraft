@@ -1,0 +1,18 @@
+name: HostwerkBridge
+version: '${project.version}'
+main: de.passimoritz.hostwerk.bridge.HostwerkBridge
+api-version: '1.20'
+load: STARTUP
+description: Verbindung zu Hostwerk – Plugin-Live-Updates ohne Server-Neustart
+author: Hostwerk
+commands:
+  hostwerk:
+    description: Hostwerk-Bridge (nur Konsole)
+    usage: /hostwerk <ping|tps|stats|motd|icon|check|reload>
+    permission: hostwerk.bridge
+permissions:
+  hostwerk.bridge:
+    default: op
+
+# Symbol für Hostwerk (Plugin-Liste) – siehe Hostwerk-README „Eigenes Plugin-Symbol“
+hostwerk-icon: hostwerk-icon.svg
