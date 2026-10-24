@@ -1,6 +1,8 @@
 # Changelog
 
-## 1.0.0 – 2026-10-24
+## 1.0.1 – 2026-10-24
+
+First published release (1.0.0 was tagged but never released).
 
 Minecraft servers as their own extension (moved out of Hostwerk 3.1).
 
