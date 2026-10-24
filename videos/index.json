@@ -1,0 +1,32 @@
+[
+  {
+    "id": "minecraft",
+    "lang": "de",
+    "title": "Minecraft – der Rundgang",
+    "seconds": 106
+  },
+  {
+    "id": "minecraft-stimme",
+    "lang": "de",
+    "title": "Minecraft – der Rundgang",
+    "seconds": 106,
+    "voice": true,
+    "of": "minecraft",
+    "section": "stimme"
+  },
+  {
+    "id": "minecraft-en",
+    "lang": "en",
+    "title": "Minecraft – the full tour",
+    "seconds": 102
+  },
+  {
+    "id": "minecraft-stimme-en",
+    "lang": "en",
+    "title": "Minecraft – the full tour",
+    "seconds": 102,
+    "voice": true,
+    "of": "minecraft-en",
+    "section": "stimme"
+  }
+]

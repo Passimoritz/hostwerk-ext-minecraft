@@ -2,3 +2,4 @@
 *.zip.sha256
 node_modules/
 server/bridge/target/
+videos-release/

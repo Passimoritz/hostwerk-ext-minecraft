@@ -39,5 +39,6 @@
   "screenshots": [
     "docs/screenshot.png",
     "docs/screenshot.de.png"
-  ]
+  ],
+  "videos": "videos/index.json"
 }
