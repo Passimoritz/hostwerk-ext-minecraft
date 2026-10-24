@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- New animated icon and banner in the common Hostwerk style (isometric block). / Neues animiertes Symbol und Banner im gemeinsamen Hostwerk-Stil (isometrischer Block).
+
 ## 1.0.1 – 2026-10-24
 
 First published release (1.0.0 was tagged but never released).
