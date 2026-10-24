@@ -20,6 +20,7 @@ const path = require('path');
 const YAML = require('./hw').lib('yaml');
 const { runJob } = require('./hw').core('jobs');
 const { fetchJson, downloadFile } = require('./hw').core('download');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 
 const MR = 'https://api.modrinth.com/v2';
 const COMPAT = { paper: 'paper', purpur: 'paper', folia: 'paper', fabric: 'fabric', neoforge: 'forge', forge: 'forge' };
@@ -59,9 +60,9 @@ function forcedHostLines(forced, keys) {
   const out = [];
   for (const [host, list] of Object.entries(forced || {})) {
     const h = String(host).trim().toLowerCase();
-    if (!/^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}$/.test(h)) throw new Error(`„${host}“ ist keine gültige Adresse für forced hosts.`);
+    if (!/^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}$/.test(h)) throw new Error(T('“{host}” is not a valid address for forced hosts.', { host }));
     const targets = [].concat(list || []).map(String);
-    if (!targets.length || targets.some((k) => !keys.includes(k))) throw new Error(`forced host „${h}“ zeigt auf einen Server, der nicht im Netzwerk ist.`);
+    if (!targets.length || targets.some((k) => !keys.includes(k))) throw new Error(T('forced host “{h}” points to a server that is not in the network.', { h }));
     out.push(`"${h}" = [${targets.map((k) => `"${k}"`).join(', ')}]`);
   }
   return out;
@@ -88,8 +89,8 @@ class Network {
 
   status(id) {
     const proxy = this.mc.get(id);
-    if (!this.mc.isProxy(proxy)) throw new Error('Das ist kein Velocity-Proxy.');
-    if (proxy.type !== 'velocity') throw new Error('Dieses Netzwerk (BungeeCord) richtet die Erweiterung „Minecraft-Servernetzwerk“ ein.');
+    if (!this.mc.isProxy(proxy)) throw new Error(T('That\'s not a Velocity proxy.'));
+    if (proxy.type !== 'velocity') throw new Error(T('This network (BungeeCord) is set up by the extension “Minecraft server network”.'));
     let toml = null;
     try { toml = fs.readFileSync(this.tomlFile(id), 'utf8'); } catch { /* noch nie gestartet */ }
     const cfg = parseServers(toml);
@@ -107,25 +108,25 @@ class Network {
 
   /** Server einmal starten und wieder stoppen, damit er seine Einstellungsdateien anlegt. */
   async startOnce(id, job, label) {
-    job.log(`${label} einmal starten, damit die Einstellungen angelegt werden …`);
+    job.log(T('Starting {label} once so its settings are created …', { label }));
     await this.mc.start(id);
     const p = this.mc.proc(id);
     for (let i = 0; i < 360 && !p.extra.ready && p.isRunning(); i++) await sleep(500);
     const ready = !!p.extra.ready; // stop() setzt „ready“ zurück – vorher merken
     await this.mc.stop(id);
-    if (!ready) throw new Error(`${label} ist beim ersten Start nicht bereit geworden – siehe Konsole.`);
+    if (!ready) throw new Error(T('{label} didn\'t become ready on the first start – see the console.', { label }));
   }
 
   /** Netzwerk speichern: members = [{ id, key }] in der gewünschten Reihenfolge (erster = Lobby/Einstieg). */
   apply(id, { members = [], forcedHosts = null } = {}) {
     const proxy = this.mc.get(id);
-    if (!this.mc.isProxy(proxy) || proxy.type !== 'velocity') throw new Error('Das ist kein Velocity-Proxy.');
-    return runJob(`Netzwerk von „${proxy.name}“ einrichten`, async (job) => {
+    if (!this.mc.isProxy(proxy) || proxy.type !== 'velocity') throw new Error(T('That\'s not a Velocity proxy.'));
+    return runJob(T('Set up network of “{name}”', { name: proxy.name }), async (job) => {
       const all = this.mc.list();
       const wanted = members.map((m) => ({ s: all.find((x) => x.id === m.id), key: keyName(m.key || m.id) })).filter((m) => m.s && !this.mc.isProxy(m.s));
-      for (const m of wanted) if (!COMPAT[m.s.type]) throw new Error(`„${m.s.name}“ (${m.s.type}) kann nicht hinter Velocity laufen – möglich sind Paper, Purpur, Folia, Fabric, NeoForge und Forge.`);
+      for (const m of wanted) if (!COMPAT[m.s.type]) throw new Error(T('“{name}” ({type}) can\'t run behind Velocity – possible are Paper, Purpur, Folia, Fabric, NeoForge and Forge.', { name: m.s.name, type: m.s.type }));
       const keys = wanted.map((m) => m.key);
-      if (new Set(keys).size !== keys.length) throw new Error('Jeder Server braucht im Netzwerk einen eigenen Namen.');
+      if (new Set(keys).size !== keys.length) throw new Error(T('Every server needs its own name in the network.'));
       const forcedLines = forcedHostLines(forcedHosts, keys); // vor allen Änderungen prüfen
       const running = new Set(all.filter((s) => this.mc.proc(s.id).isRunning()).map((s) => s.id));
 
@@ -135,12 +136,12 @@ class Network {
         await this.startOnce(id, job, proxy.name);
       }
       const secret = this.secret(id);
-      if (!secret) throw new Error('Velocity hat keinen Weiterleitungs-Schlüssel (forwarding.secret) angelegt.');
+      if (!secret) throw new Error(T('Velocity didn\'t create a forwarding key (forwarding.secret).'));
 
       // 2) Server ins Netzwerk nehmen
       let n = 0;
       for (const { s, key } of wanted) {
-        job.progress(15 + (n++ / Math.max(1, wanted.length)) * 60, `„${s.name}“ verbinden …`);
+        job.progress(15 + (n++ / Math.max(1, wanted.length)) * 60, T('Connecting “{name}” …', { name: s.name }));
         const dir = this.mc.dir(s.id);
         if (this.mc.proc(s.id).isRunning()) await this.mc.stop(s.id);
         const kind = COMPAT[s.type];
@@ -156,7 +157,7 @@ class Network {
           await this.ensureProxyMod(s, 'fabric', job);
           const conf = path.join(dir, 'config', 'FabricProxy-Lite.toml');
           fs.mkdirSync(path.dirname(conf), { recursive: true });
-          let t = fs.existsSync(conf) ? fs.readFileSync(conf, 'utf8') : 'hackOnlineMode = true\nhackEarlySend = false\nhackMessageChain = true\ndisconnectMessage = "Bitte über den Netzwerk-Proxy verbinden."\n';
+          let t = fs.existsSync(conf) ? fs.readFileSync(conf, 'utf8') : `hackOnlineMode = true\nhackEarlySend = false\nhackMessageChain = true\ndisconnectMessage = "${T('Please connect through the network proxy.')}"\n`;
           t = /^\s*secret\s*=/m.test(t) ? t.replace(/^\s*secret\s*=.*$/m, `secret = "${secret}"`) : `${t.replace(/\n*$/, '\n')}secret = "${secret}"\n`;
           fs.writeFileSync(conf, t);
         } else if (kind === 'forge') {
@@ -172,7 +173,7 @@ class Network {
         if (!(s.network && s.network.proxy === id)) s.network = { proxy: id, prevOnline: props['online-mode'] || 'true', prevIp: props['server-ip'] || '' };
         s.network.key = key;
         writeProps(propsFile, { 'online-mode': 'false', 'server-ip': '127.0.0.1' });
-        job.log(`✓ „${s.name}“ als „${key}“ (127.0.0.1:${s.port})`);
+        job.log(T('✓ “{name}” as “{key}” (127.0.0.1:{port})', { name: s.name, key, port: s.port }));
       }
 
       // 3) Server, die nicht mehr dazugehören, wiederherstellen
@@ -185,24 +186,24 @@ class Network {
         // Proxy-Mods abschalten – sonst lassen sie keine direkten Verbindungen mehr zu
         const mods = path.join(dir, 'mods');
         if (fs.existsSync(mods)) for (const f of fs.readdirSync(mods)) if (/\.jar$/i.test(f) && Object.values(PROXY_MOD).some((pm) => pm.re.test(f))) fs.renameSync(path.join(mods, f), path.join(mods, f + '.disabled'));
-        job.log(`„${s.name}“ aus dem Netzwerk genommen – wieder direkt erreichbar.`);
+        job.log(T('“{name}” removed from the network – reachable directly again.', { name: s.name }));
         delete s.network;
       }
 
       // 4) velocity.toml: Server-Liste, Reihenfolge, modern forwarding; Beispiel-„forced hosts“ entfernen
-      job.progress(85, 'Proxy-Einstellungen schreiben …');
+      job.progress(85, T('Writing proxy settings …'));
       if (running.has(id) && this.mc.proc(id).isRunning()) await this.mc.stop(id);
       let toml = fs.readFileSync(this.tomlFile(id), 'utf8');
       toml = /^\s*player-info-forwarding-mode\s*=/m.test(toml) ? toml.replace(/^(\s*player-info-forwarding-mode\s*=\s*).*$/m, '$1"modern"') : `player-info-forwarding-mode = "modern"\n${toml}`;
-      const lines = ['# Von Hostwerk verwaltet (Minecraft → Proxy → Netzwerk) – Änderungen dort vornehmen', ...wanted.map((m) => `${m.key} = "127.0.0.1:${m.s.port}"`), `try = [${wanted.map((m) => `"${m.key}"`).join(', ')}]`];
+      const lines = ['# Managed by Hostwerk (Minecraft → Proxy → Network) – make changes there', ...wanted.map((m) => `${m.key} = "127.0.0.1:${m.s.port}"`), `try = [${wanted.map((m) => `"${m.key}"`).join(', ')}]`];
       toml = replaceSection(toml, 'servers', lines.join('\n'));
-      toml = replaceSection(toml, 'forced-hosts', forcedLines.length ? ['# Von Hostwerk verwaltet – Adresse → Server', ...forcedLines].join('\n') : '# (leer – Hostwerk nutzt die Reihenfolge unter [servers])');
+      toml = replaceSection(toml, 'forced-hosts', forcedLines.length ? ['# Managed by Hostwerk – address → server', ...forcedLines].join('\n') : '# (empty – Hostwerk uses the order under [servers])');
       fs.writeFileSync(this.tomlFile(id), toml);
       this.mc.settings.save();
 
       // 5) Wieder starten, was vorher lief
-      job.progress(92, 'Neu starten …');
-      for (const sid of running) { try { await this.mc.start(sid); } catch (e) { job.log(`Start von ${sid}: ${e.message}`); } }
+      job.progress(92, T('Restarting …'));
+      for (const sid of running) { try { await this.mc.start(sid); } catch (e) { job.log(T('Start of {sid}: {message}', { sid, message: e.message })); } }
       return this.status(id);
     }, { key: `mc-network-${id}` });
   }
@@ -215,23 +216,23 @@ class Network {
     const files = fs.readdirSync(mods);
     if (files.some((f) => /\.jar$/i.test(f) && pm.re.test(f))) return;
     const off = files.find((f) => /\.jar\.disabled$/i.test(f) && pm.re.test(f));
-    if (off) { fs.renameSync(path.join(mods, off), path.join(mods, off.replace(/\.disabled$/i, ''))); job.log(`${pm.name} für „${s.name}“ wieder eingeschaltet.`); return; }
+    if (off) { fs.renameSync(path.join(mods, off), path.join(mods, off.replace(/\.disabled$/i, ''))); job.log(T('{name} turned back on for “{name2}”.', { name: pm.name, name2: s.name })); return; }
     const q = `loaders=${encodeURIComponent(JSON.stringify([s.type]))}&game_versions=${encodeURIComponent(JSON.stringify([s.version]))}`;
     const v = (await fetchJson(`${MR}/project/${pm.slug}/version?${q}`))[0];
-    if (!v) throw new Error(`${pm.name} gibt es (noch) nicht für ${s.type === 'neoforge' ? 'NeoForge' : s.type === 'forge' ? 'Forge' : 'Fabric'} ${s.version} – „${s.name}“ kann deshalb noch nicht hinter Velocity. Sobald die Mod erscheint, klappt es mit demselben Knopf.`);
+    if (!v) throw new Error(T('{name} doesn\'t exist (yet) for {v2} {version} – “{name2}” therefore can\'t run behind Velocity yet. As soon as the mod is out, the same button works.', { name: pm.name, v2: s.type === 'neoforge' ? 'NeoForge' : s.type === 'forge' ? 'Forge' : 'Fabric', version: s.version, name2: s.name }));
     const f = v.files.find((x) => x.primary) || v.files[0];
     await downloadFile(f.url, path.join(mods, path.basename(f.filename)), { sha1: f.hashes && f.hashes.sha1 });
-    job.log(`${pm.name} ${v.version_number} für „${s.name}“ installiert.`);
+    job.log(T('{name} {version_number} installed for “{name2}”.', { name: pm.name, version_number: v.version_number, name2: s.name }));
   }
 
   /** Lobby-Vorlage: kleiner Paper-Server (flach, Abenteuer, friedlich) als Einstieg ins Netzwerk. */
   createLobby(id, { name = 'Lobby' } = {}) {
     const proxy = this.mc.get(id);
-    if (!this.mc.isProxy(proxy)) throw new Error('Das ist kein Velocity-Proxy.');
-    return runJob(`Lobby für „${proxy.name}“ anlegen`, async (job) => {
+    if (!this.mc.isProxy(proxy)) throw new Error(T('That\'s not a Velocity proxy.'));
+    return runJob(T('Create lobby for “{name}”', { name: proxy.name }), async (job) => {
       const { providers } = require('./providers');
       const ver = (await providers.paper.versions()).latest;
-      job.progress(5, `Paper ${ver} für die Lobby laden …`);
+      job.progress(5, T('Loading Paper {ver} for the lobby …', { ver }));
       const r = await this.mc.create({ type: 'paper', version: ver, name, eula: true, memMax: 2048, gamemode: 'adventure', difficulty: 'peaceful', maxPlayers: 100, onlineMode: true });
       const res = await r.promise;
       const lobby = this.mc.get(res.id);
@@ -239,11 +240,11 @@ class Network {
         'level-type': 'minecraft\\:flat', 'generate-structures': 'false', 'spawn-monsters': 'false', pvp: 'false', 'allow-nether': 'false',
         'spawn-protection': '0', 'force-gamemode': 'true', motd: `${proxy.name} – Lobby`,
       });
-      job.log('Lobby angelegt: flache Welt, Abenteuermodus, friedlich, kein PvP. Gestalten: Server starten und in der Konsole „gamemode creative <Name>“.');
+      job.log(T('Lobby created: flat world, adventure mode, peaceful, no PvP. To build it: start the server and type “gamemode creative <name>” in the console.'));
       // An die erste Stelle des Netzwerks
       const st = this.status(id);
       const members = [{ id: lobby.id, key: 'lobby' }, ...st.candidates.filter((c) => c.member).map((c) => ({ id: c.id, key: c.key }))];
-      job.progress(70, 'Lobby ins Netzwerk aufnehmen …');
+      job.progress(70, T('Adding lobby to the network …'));
       await this.apply(id, { members }).promise;
       return { id: lobby.id };
     }, { key: `mc-lobby-${id}` });

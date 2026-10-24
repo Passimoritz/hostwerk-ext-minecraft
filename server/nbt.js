@@ -34,7 +34,7 @@ class Reader {
       case T.COMPOUND: { const out = []; for (;;) { const ct = this.u8(); if (ct === T.END) break; const name = this.str(); out.push([name, { t: ct, v: this.payload(ct) }]); } return out; }
       case T.INTS: { const n = this.i32(); const v = []; for (let i = 0; i < n; i++) v.push(this.i32()); return v; }
       case T.LONGS: { const n = this.i32(); const v = []; for (let i = 0; i < n; i++) v.push(this.i64()); return v; }
-      default: throw new Error(`Unbekannter NBT-Typ ${t}`);
+      default: throw new Error(T('Unknown NBT type {t}', { t }));
     }
   }
 }
@@ -64,7 +64,7 @@ class Writer {
       case T.COMPOUND: for (const [name, node] of v) { this.u8(node.t); this.str(name); this.payload(node.t, node.v); } this.u8(T.END); break;
       case T.INTS: this.i32(v.length); for (const x of v) this.i32(x); break;
       case T.LONGS: this.i32(v.length); for (const x of v) this.i64(x); break;
-      default: throw new Error(`Unbekannter NBT-Typ ${t}`);
+      default: throw new Error(T('Unknown NBT type {t}', { t }));
     }
   }
   out() { return Buffer.concat(this.parts); }
@@ -76,7 +76,7 @@ function read(file) {
   if (buf[0] === 0x1f && buf[1] === 0x8b) buf = zlib.gunzipSync(buf);
   const r = new Reader(buf);
   const t = r.u8();
-  if (t !== T.COMPOUND) throw new Error('Keine NBT-Datei (kein Compound am Anfang).');
+  if (t !== T.COMPOUND) throw new Error(T('Not an NBT file (no compound at the start).'));
   const name = r.str();
   return { name, root: { t, v: r.payload(t) } };
 }
@@ -104,7 +104,7 @@ function readGameRules(levelDat) {
 function writeGameRule(levelDat, name, value) {
   const doc = read(levelDat);
   const data = child(doc.root.v, 'Data');
-  if (!data) throw new Error('level.dat ohne „Data“-Abschnitt.');
+  if (!data) throw new Error(T('level.dat without a “Data” section.'));
   let rules = child(data.v, 'GameRules');
   if (!rules) { rules = { t: T.COMPOUND, v: [] }; data.v.push(['GameRules', rules]); }
   const cur = rules.v.find(([n]) => n === name);

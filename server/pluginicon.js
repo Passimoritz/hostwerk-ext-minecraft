@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const yauzl = require('./hw').lib('yauzl');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 
 const MAX = 512 * 1024;
 const TYPES = { '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
@@ -23,7 +24,7 @@ function readEntry(zip, entry) {
   return new Promise((resolve, reject) => zip.openReadStream(entry, (err, s) => {
     if (err) return reject(err);
     const parts = []; let n = 0;
-    s.on('data', (c) => { n += c.length; if (n > MAX) { s.destroy(); reject(new Error('zu groß')); } else parts.push(c); });
+    s.on('data', (c) => { n += c.length; if (n > MAX) { s.destroy(); reject(new Error(T('too large'))); } else parts.push(c); });
     s.on('end', () => resolve(Buffer.concat(parts)));
     s.on('error', reject);
   }));

@@ -13,6 +13,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { zipDir, slug } = require('./hw').core('util');
 const { APP_UA, fetchJson } = require('./hw').core('download');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 
 const MR = 'https://api.modrinth.com/v2';
 const LOADER_KEY = { fabric: 'fabric-loader', neoforge: 'neoforge', forge: 'forge' };
@@ -20,7 +21,7 @@ const SECRET_FILE = /secret|password|passwort|token|fabricproxy|velocity|discord
 
 async function post(url, body) {
   const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': APP_UA }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) });
-  if (!res.ok) throw new Error(`Modrinth antwortet mit ${res.status}`);
+  if (!res.ok) throw new Error(T('Modrinth responds with {status}', { status: res.status }));
   return res.json();
 }
 
@@ -30,7 +31,7 @@ class ClientPack {
   /** Welche Mods ins Paket kommen (und warum nicht). */
   async analyze(id) {
     const s = this.mc.get(id);
-    if (this.mc.content(s) !== 'mods' || !LOADER_KEY[s.type]) throw new Error('Ein Client-Paket gibt es nur für Mod-Server (Fabric, NeoForge, Forge).');
+    if (this.mc.content(s) !== 'mods' || !LOADER_KEY[s.type]) throw new Error(T('A client package only exists for mod servers (Fabric, NeoForge, Forge).'));
     const dir = this.mc.addonDir(id);
     const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /\.jar$/i.test(f)) : []; // deaktivierte (.disabled) bleiben weg
     const mods = files.map((file) => {
@@ -46,10 +47,10 @@ class ClientPack {
     }
     for (const m of mods) {
       const v = known[m.sha1];
-      if (!v) { Object.assign(m, { name: m.file.replace(/\.jar$/i, ''), source: 'datei', include: true, note: 'nicht auf Modrinth – wird mitgepackt' }); continue; }
+      if (!v) { Object.assign(m, { name: m.file.replace(/\.jar$/i, ''), source: 'datei', include: true, note: T('not on Modrinth – will be bundled') }); continue; }
       const p = projects[v.project_id] || {};
       const f = v.files.find((x) => x.hashes && x.hashes.sha1 === m.sha1) || v.files[0];
-      Object.assign(m, { name: p.title || v.name, source: 'modrinth', url: f && f.url, clientSide: p.client_side || 'unknown', include: p.client_side !== 'unsupported', note: p.client_side === 'unsupported' ? 'nur für den Server – Spieler brauchen ihn nicht' : p.client_side === 'optional' ? 'für Spieler optional' : '' });
+      Object.assign(m, { name: p.title || v.name, source: 'modrinth', url: f && f.url, clientSide: p.client_side || 'unknown', include: p.client_side !== 'unsupported', note: p.client_side === 'unsupported' ? T('server only – players don’t need it') : p.client_side === 'optional' ? T('optional for players') : '' });
     }
     return { server: { id: s.id, name: s.name, mc: s.version, loader: s.type, loaderVersion: s.build }, mods };
   }
@@ -58,7 +59,7 @@ class ClientPack {
   async build(id, { config = false } = {}) {
     const a = await this.analyze(id);
     const s = this.mc.get(id);
-    if (!a.server.loaderVersion) throw new Error('Die Loader-Version des Servers ist unbekannt – bitte unter „Version“ einmal neu laden.');
+    if (!a.server.loaderVersion) throw new Error(T('The server\'s loader version is unknown – please reload it once under “Version”.'));
     const stage = path.join(this.mc.paths.cache, `clientpack-${id}-${Date.now()}`);
     fs.mkdirSync(path.join(stage, 'overrides', 'mods'), { recursive: true });
     const files = [];
@@ -75,7 +76,7 @@ class ClientPack {
       formatVersion: 1, game: 'minecraft',
       versionId: new Date().toISOString().slice(0, 10).replace(/-/g, '.'),
       name: `${s.name} (Client)`,
-      summary: `Client-Paket für den Server „${s.name}“ – erstellt mit Hostwerk.`,
+      summary: T('Client pack for the server “{name}” – made with Hostwerk.', { name: s.name }),
       files,
       dependencies: { minecraft: a.server.mc, [LOADER_KEY[a.server.loader]]: a.server.loaderVersion },
     };

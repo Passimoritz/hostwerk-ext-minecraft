@@ -41,6 +41,7 @@ const { zipDir, unzipTo, slug, dirSize } = require('./hw').core('util');
 const { broadcast } = require('./hw').core('events');
 const net = require('net');
 const { bedrockStatus } = require('./ping');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 
 const LINKS = 'https://net-secondary.web.minecraft-services.net/api/v1.0/download/links';
 const IS_WIN = process.platform === 'win32';
@@ -129,7 +130,7 @@ const provider = {
   label: 'Bedrock Dedicated Server',
   edition: 'bedrock',
   homepage: 'https://www.minecraft.net/download/server/bedrock',
-  description: 'Mojangs Server für die Bedrock Edition (Handy, Tablet, Konsole, Windows) – eigene Bedrock-Welt, kein Java nötig.',
+  description: 'Mojang’s server for the Bedrock Edition (phone, tablet, console, Windows) – its own Bedrock world, no Java needed.',
   plugins: false,
   content: 'none',
   loaders: [],
@@ -159,12 +160,12 @@ class BedrockEdition {
 
   /** Gewünschte Fassung: neueste stabile, die Vorschau oder genau eine Versionsnummer (Mojang hat nur diese beiden). */
   async release(version) {
-    if (!this.supported()) throw new Error('Mojang bietet den Bedrock-Server nur für Windows und Linux an.');
+    if (!this.supported()) throw new Error(T('Mojang offers the Bedrock server only for Windows and Linux.'));
     const r = await this.releases();
-    if (!version || version === 'latest') { if (!r.stable) throw new Error('Mojangs Download-Liste nennt gerade keinen Bedrock-Server für dieses System.'); return r.stable; }
+    if (!version || version === 'latest') { if (!r.stable) throw new Error(T('Mojang’s download list names no Bedrock server for this system right now.')); return r.stable; }
     if (version === 'preview' && r.preview) return r.preview;
     const hit = [r.stable, r.preview].find((x) => x && x.version === version);
-    if (!hit) throw new Error(`Bedrock ${version} bietet Mojang nicht mehr an – verfügbar ist ${[r.stable && r.stable.version, r.preview && `${r.preview.version} (Vorschau)`].filter(Boolean).join(' und ')}.`);
+    if (!hit) throw new Error(T('Mojang no longer offers Bedrock {version} – available is {v2}.', { version, v2: [r.stable && r.stable.version, r.preview && `${r.preview.version} (${T('Preview')})`].filter(Boolean).join(T(' and ')) }));
     return hit;
   }
 
@@ -188,9 +189,9 @@ class BedrockEdition {
     const used = this.usedUdp(exceptId);
     const free = async (p) => p > 0 && p < 65536 && !used.has(p) && (await this.udpFree(p));
     let port = Number(want) || 0;
-    if (port && !(await free(port))) throw new Error(`UDP-Port ${port} ist schon vergeben – lass das Feld leer, dann sucht Hostwerk einen freien.`);
+    if (port && !(await free(port))) throw new Error(T('UDP port {port} is already taken – leave the field empty and Hostwerk picks a free one.', { port }));
     for (let p = 19132; !port && p < 19132 + 400; p += 2) if (await free(p)) port = p;
-    if (!port) throw new Error('Kein freier UDP-Port zwischen 19132 und 19531 gefunden.');
+    if (!port) throw new Error(T('No free UDP port found between 19132 and 19531.'));
     used.add(port);
     let portv6 = 0;
     for (let p = port + 1; !portv6 && p < port + 400; p++) if (await free(p)) portv6 = p;
@@ -204,13 +205,13 @@ class BedrockEdition {
     const tmp = path.join(this.mc.paths.cache, `bedrock-${rel.version}-${crypto.randomBytes(3).toString('hex')}.zip`);
     fs.mkdirSync(path.dirname(tmp), { recursive: true });
     try {
-      if (job) job.log(`Bedrock Dedicated Server ${rel.version}${rel.preview ? ' (Vorschau)' : ''} von minecraft.net`);
-      await this.download(rel.url, tmp, { browser: true, onProgress: job ? jobProgress(job, `Bedrock ${rel.version} herunterladen`, from, from + (to - from) * 0.8) : undefined });
-      if (job) job.progress(from + (to - from) * 0.85, 'Entpacken …');
+      if (job) job.log(T('Bedrock Dedicated Server {version}{v2} from minecraft.net', { version: rel.version, v2: rel.preview ? ` (${T('Preview')})` : '' }));
+      await this.download(rel.url, tmp, { browser: true, onProgress: job ? jobProgress(job, T('Download Bedrock {version}', { version: rel.version }), from, from + (to - from) * 0.8) : undefined });
+      if (job) job.progress(from + (to - from) * 0.85, T('Extracting …'));
       fs.mkdirSync(dir, { recursive: true });
       await this.extract(tmp, dir);
       if (!IS_WIN) { try { fs.chmodSync(path.join(dir, 'bedrock_server'), 0o755); } catch { /* fehlt – fällt beim Start auf */ } }
-      if (!fs.existsSync(path.join(dir, IS_WIN ? 'bedrock_server.exe' : 'bedrock_server'))) throw new Error('Im Download fehlt das Server-Programm – bitte später noch einmal versuchen.');
+      if (!fs.existsSync(path.join(dir, IS_WIN ? 'bedrock_server.exe' : 'bedrock_server'))) throw new Error(T('The download lacks the server program – please try again later.'));
       // Vorlage dieser Version merken, BEVOR Einstellungen des Nutzers darüber kopiert werden
       const read = (f) => { try { return fs.readFileSync(path.join(dir, f), 'utf8'); } catch { return ''; } };
       fs.writeFileSync(path.join(dir, TEMPLATE_INFO), JSON.stringify({ version: rel.version, ...templateInfo(read('server.properties'), read('bedrock_server_how_to.html')) }));
@@ -220,8 +221,8 @@ class BedrockEdition {
   /** Neuer Bedrock-Server: body { name, eula, version?, port?, gamemode, difficulty, maxPlayers, onlineMode, seed, nightlyBackup } */
   async create(body = {}) {
     const mc = this.mc;
-    if (!this.supported()) throw new Error('Mojang bietet den Bedrock-Server nur für Windows und Linux an.');
-    if (!body.eula) throw new Error('Die Minecraft-EULA und Mojangs Datenschutzerklärung müssen akzeptiert werden.');
+    if (!this.supported()) throw new Error(T('Mojang offers the Bedrock server only for Windows and Linux.'));
+    if (!body.eula) throw new Error(T('The Minecraft EULA and Mojang’s privacy policy have to be accepted.'));
     const name = String(body.name || '').trim().slice(0, 60) || 'Bedrock-Server';
     let id = slug(name);
     if (body._id && /^[\w-]+$/.test(body._id) && !mc.list().some((s) => s.id === body._id)) id = body._id;
@@ -229,7 +230,7 @@ class BedrockEdition {
     const { port, portv6 } = await this.pickPorts(Number(body._port) || Number(body.port) || 0);
     const gm = ['survival', 'creative', 'adventure'].includes(body.gamemode) ? body.gamemode : 'survival';
     const diff = ['peaceful', 'easy', 'normal', 'hard'].includes(body.difficulty) ? body.difficulty : 'normal';
-    return runJob(`Bedrock-Server „${name}“ anlegen`, async (job) => {
+    return runJob(T('Set up Bedrock server “{name}”', { name }), async (job) => {
       const dir = mc.dir(id);
       fs.mkdirSync(dir, { recursive: true });
       try {
@@ -250,7 +251,7 @@ class BedrockEdition {
         mc.list().push(server);
         mc.settings.save();
         mc.proc(id);
-        job.progress(100, 'Fertig');
+        job.progress(100, T('Done'));
         return { id };
       } catch (e) {
         fs.rmSync(dir, { recursive: true, force: true });
@@ -268,12 +269,12 @@ class BedrockEdition {
     if (p.isRunning()) return;
     const dir = mc.dir(id);
     const launch = this.launch ? this.launch(id) : { cmd: this.exe(id), args: [] };
-    if (!fs.existsSync(launch.cmd)) throw new Error('Bedrock-Server fehlt: ' + launch.cmd);
-    if (!(await this.udpFree(s.port))) throw new Error(`UDP-Port ${s.port} ist belegt – ein anderes Programm (oder ein zweiter Bedrock-Server) nutzt ihn.`);
+    if (!fs.existsSync(launch.cmd)) throw new Error(T('Bedrock server missing: {file}', { file: launch.cmd }));
+    if (!(await this.udpFree(s.port))) throw new Error(T('UDP port {port} is in use – another program (or a second Bedrock server) uses it.', { port: s.port }));
     // Hostwerk führt die Ports (Freigaben in Firewall/Router hängen daran)
     mc.setPropertiesAt(dir, { 'server-port': s.port, ...(s.portv6 ? { 'server-portv6': s.portv6 } : {}) });
     const nn = this.applyNetherNet(id);
-    if (nn.transport !== 'raknet' && !(await this.tcpFree(s.port))) throw new Error(`TCP-Port ${s.port} ist belegt – NetherNet braucht ihn für die Anmeldung. Ein anderes Programm nutzt ihn.`);
+    if (nn.transport !== 'raknet' && !(await this.tcpFree(s.port))) throw new Error(T('TCP port {port} is taken – NetherNet needs it for signing in. Another program uses it.', { port: s.port }));
     this.nnSeen = this.nnSeen || new Map();
     this.nnSeen.delete(id);
     p.setExtra({ players: [], playerCount: 0, ready: false, tps: null, liveMotd: null, bridge: null });
@@ -295,11 +296,11 @@ class BedrockEdition {
         const v = clean.match(/\bVersion:?\s+(\d+\.\d+\.\d+(?:\.\d+)?)/);
         if (v && !p.extra.version) p.setExtra({ version: v[1] });
         this.playerLine(id, p, clean);
-        if (/Network port occupied|Failed to bind|port .* in use/i.test(clean)) p.log(`Hinweis: Der UDP-Port ${s.port} (oder ${s.portv6}) ist belegt – unter Einstellungen einen anderen wählen.`, 'sys');
+        if (/Network port occupied|Failed to bind|port .* in use/i.test(clean)) p.log(T('Note: UDP port {port} (or {portv6}) is in use – choose another one under Settings.', { port: s.port, portv6: s.portv6 }), 'sys');
       },
       ready: () => new Promise((r) => setTimeout(r, 1500)),
     });
-    ready.then(() => broadcast({ type: 'toast', kind: 'success', text: `„${s.name}“ ist bereit (UDP-Port ${s.port}).` }));
+    ready.then(() => broadcast({ type: 'toast', kind: 'success', text: T('“{name}” is ready (UDP port {port}).', { name: s.name, port: s.port }) }));
   }
 
   /** Protokollzeile: An-/Abmeldungen (mit XUID) – Statistik und Live-Ereignisse wie bei Java. */
@@ -354,7 +355,7 @@ class BedrockEdition {
         readySince = readySince || Date.now();
         const r = await this.ping(s.port).catch(() => null);
         if (r) { this.seen(id, p, r); return true; }
-        if ((s.bdsNet || {}).transport === 'nethernet' && Date.now() - readySince >= ms / 2) { this.probeNote = 'läuft stabil, Port-Antwort über NetherNet nicht prüfbar'; return true; }
+        if ((s.bdsNet || {}).transport === 'nethernet' && Date.now() - readySince >= ms / 2) { this.probeNote = T('running stably, port answer via NetherNet cannot be checked'); return true; }
       }
       await sleep(1000);
     }
@@ -435,18 +436,18 @@ class BedrockEdition {
     const mc = this.mc;
     const s = mc.get(id);
     const p = mc.proc(id);
-    if (!force && (p.extra.players || []).length) throw Object.assign(new Error('Gerade spielen Leute – das Update wartet, bis niemand mehr online ist.'), { status: 409 });
-    return runJob(`Bedrock-Server „${s.name}“ aktualisieren`, async (job) => {
+    if (!force && (p.extra.players || []).length) throw Object.assign(new Error(T('People are playing right now – the update waits until nobody is online.')), { status: 409 });
+    return runJob(T('Update Bedrock server “{name}”', { name: s.name }), async (job) => {
       const rel = await this.release(version || (s.preview ? 'preview' : undefined));
       if (s.version && cmpVer(rel.version, s.version) === 0 && !force) return { upToDate: true, version: s.version };
       const dir = mc.dir(id); const staged = `${dir}.neu`; const prevDir = `${dir}.alt`;
-      job.progress(3, 'Sicherung der Welten …');
+      job.progress(3, T('Backing up the worlds …'));
       await this.backupTo(id, path.join(mc.backupDir(id), `${stamp()}-vor-update-${rel.version}.zip`));
       fs.rmSync(staged, { recursive: true, force: true });
       await this.installTo(staged, rel, job, [8, 70]);
       const wasRunning = p.isRunning();
-      if (wasRunning) { job.progress(72, 'Server stoppen …'); await mc.stop(id); }
-      job.progress(78, 'Welten und Einstellungen übernehmen …');
+      if (wasRunning) { job.progress(72, T('Stopping server …')); await mc.stop(id); }
+      job.progress(78, T('Moving worlds and settings over …'));
       for (const k of KEEP) { const src = path.join(dir, k); if (fs.existsSync(src)) { fs.rmSync(path.join(staged, k), { recursive: true, force: true }); fs.cpSync(src, path.join(staged, k), { recursive: true }); } }
       fs.rmSync(prevDir, { recursive: true, force: true });
       await renameRetry(dir, prevDir);
@@ -454,18 +455,18 @@ class BedrockEdition {
       const prev = s.version; const prevPreview = !!s.preview;
       s.version = rel.version; s.preview = !!rel.preview;
       mc.settings.save();
-      job.progress(85, 'Probestart …');
+      job.progress(85, T('Trial start …'));
       this.probing = true;
       try {
         await mc.start(id);
-        if (!(await this.probe(id))) throw new Error(p.isRunning() ? 'der Server antwortet nicht auf seinem Port' : 'der Server hat sich beim Start beendet');
+        if (!(await this.probe(id))) throw new Error(p.isRunning() ? T('the server does not answer on its port') : T('the server quit while starting'));
         fs.rmSync(prevDir, { recursive: true, force: true });
         delete s.bedrockFailed;
         mc.settings.save();
-        this.note(s, true, `Version ${rel.version} läuft.${this.probeNote ? ` (${this.probeNote})` : ''}`);
+        this.note(s, true, T('Version {version} is running.', { version: rel.version }) + (this.probeNote ? ` (${this.probeNote})` : ''));
         this.probeNote = null;
         if (!wasRunning) await mc.stop(id);
-        job.log(`Bedrock ${rel.version} läuft – Welten und Einstellungen sind übernommen.`);
+        job.log(T('Bedrock {version} is running – worlds and settings were carried over.', { version: rel.version }));
         return { version: rel.version, previous: prev };
       } catch (e) {
         await mc.stop(id).catch(() => {});
@@ -473,7 +474,7 @@ class BedrockEdition {
         await renameRetry(prevDir, dir);
         s.version = prev; s.preview = prevPreview; s.bedrockFailed = rel.version;
         mc.settings.save();
-        const text = `Update auf ${rel.version} zurückgenommen (${e.message}) – Version ${prev} läuft wieder. Hostwerk überspringt ${rel.version}.`;
+        const text = T('Update to {version} rolled back ({error}) – version {prev} is running again. Hostwerk skips {version}.', { version: rel.version, error: e.message, prev });
         this.note(s, false, text);
         broadcast({ type: 'toast', kind: 'warn', text: `${s.name}: ${text}` });
         if (wasRunning) await mc.start(id).catch(() => {});
@@ -563,7 +564,7 @@ class BedrockEdition {
   reload(id, what) { const p = this.mc.proc(id); if (p.child && p.extra.ready) p.write(`${what} reload`); }
   setAllow(id, name, on = true, { ignoresPlayerLimit = false } = {}) {
     const n = String(name || '').trim();
-    if (!/^[\w .#-]{1,32}$/.test(n)) throw Object.assign(new Error('Ungültiger Gamertag.'), { status: 400 });
+    if (!/^[\w .#-]{1,32}$/.test(n)) throw Object.assign(new Error(T('Invalid gamertag.')), { status: 400 });
     const xuid = (this.known(id)[n] || {}).xuid || null;
     let list = this.readJson(id, 'allowlist.json').filter((e) => String(e.name || '').toLowerCase() !== n.toLowerCase());
     if (on) list.push({ ignoresPlayerLimit: !!ignoresPlayerLimit, name: n, ...(xuid ? { xuid } : {}) });
@@ -577,8 +578,8 @@ class BedrockEdition {
     const k = this.known(id);
     const w = String(who || '').trim();
     const xuid = /^\d{6,20}$/.test(w) ? w : (k[w] || Object.entries(k).find(([n]) => n.toLowerCase() === w.toLowerCase())?.[1] || {}).xuid;
-    if (!xuid) throw Object.assign(new Error(`„${w}“ war noch nie auf diesem Server – Bedrock vergibt Rechte über die Xbox-Kennung, die Hostwerk erst beim ersten Besuch erfährt.`), { status: 409 });
-    if (level != null && !LEVELS.includes(level)) throw Object.assign(new Error('Unbekannte Stufe.'), { status: 400 });
+    if (!xuid) throw Object.assign(new Error(T('“{w}” has never been on this server – Bedrock gives permissions by Xbox ID, which Hostwerk only learns on the first visit.', { w })), { status: 409 });
+    if (level != null && !LEVELS.includes(level)) throw Object.assign(new Error(T('Unknown level.')), { status: 400 });
     const list = this.readJson(id, 'permissions.json').filter((e) => String(e.xuid) !== xuid);
     if (level) list.push({ permission: level, xuid });
     this.writeJson(id, 'permissions.json', list);

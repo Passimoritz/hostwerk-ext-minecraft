@@ -6,6 +6,7 @@ import { contextMenu } from '@hostwerk/kit';
 import { PlayerHead } from '@hostwerk/kit';
 import { ActivityCard } from './McTools';
 import { locale } from '@hostwerk/kit';
+import { t as T } from '@hostwerk/i18n';
 
 /*
  * Online-Spieler: Status (OP, Whitelist) kennen und per Knopf oder Rechtsklick verwalten.
@@ -49,7 +50,7 @@ function useCmd(s, lists) {
   };
 }
 
-const GAMEMODES = [['survival', 'Überleben', Heart], ['creative', 'Kreativ', Hammer], ['adventure', 'Abenteuer', Compass], ['spectator', 'Zuschauer', Eye]];
+const GAMEMODES = [['survival', 'Survival', Heart], ['creative', 'Creative', Hammer], ['adventure', 'Adventure', Compass], ['spectator', 'Spectator', Eye]];
 
 /**
  * Alle Aktionen für einen Spieler (Rechtsklick-Menü) – für Online-Spieler und für Einträge in OP-, Whitelist- und
@@ -63,31 +64,31 @@ export function playerMenu(e, { s, name, lists, cmd, online = [] }) {
   const off = s.proc.state !== 'running';
   const isOnline = !off && online.some((n) => same(n, name));
   const others = online.filter((n) => !same(n, name));
-  const hint = off ? 'Server aus' : undefined;
+  const hint = off ? T('Server off') : undefined;
   contextMenu(e, [
-    op ? { label: 'OP entziehen', icon: Crown, disabled: off, hint, onClick: () => cmd(`deop ${name}`, `${name} ist kein OP mehr`) }
-      : { label: 'OP geben', icon: Crown, disabled: off, hint, onClick: () => cmd(`op ${name}`, `${name} ist jetzt OP`) },
+    op ? { label: T('Revoke OP'), icon: Crown, disabled: off, hint, onClick: () => cmd(`deop ${name}`, T(`${name} is no longer OP`)) }
+      : { label: T('Make operator'), icon: Crown, disabled: off, hint, onClick: () => cmd(`op ${name}`, T(`${name} is now OP`)) },
     ...(isOnline ? [
       '-',
-      ...GAMEMODES.map(([id, label, icon]) => ({ label: `Spielmodus: ${label}`, icon, onClick: () => cmd(`gamemode ${id} ${name}`, `${name}: ${label}`) })),
+      ...GAMEMODES.map(([id, label, icon]) => ({ label: T(`Game mode: ${label}`), icon, onClick: () => cmd(`gamemode ${id} ${name}`, `${name}: ${label}`) })),
       '-',
-      { label: 'Heilen & sättigen', icon: Heart, onClick: () => { cmd(`effect give ${name} minecraft:instant_health 1 10`); cmd(`effect give ${name} minecraft:saturation 1 10`, `${name} geheilt`); } },
-      others.length > 0 && { label: `Zu ${others.length === 1 ? others[0] : 'Spieler …'} teleportieren`, icon: Navigation, onClick: async () => {
-        const to = others.length === 1 ? others[0] : await promptDialog({ title: `${name} teleportieren`, label: `Zu welchem Spieler? (${others.join(', ')})`, value: others[0] });
+      { label: T('Heal & feed'), icon: Heart, onClick: () => { cmd(`effect give ${name} minecraft:instant_health 1 10`); cmd(`effect give ${name} minecraft:saturation 1 10`, T(`${name} healed`)); } },
+      others.length > 0 && { label: T(`Teleport to ${others.length === 1 ? others[0] : T('Player …')}`), icon: Navigation, onClick: async () => {
+        const to = others.length === 1 ? others[0] : await promptDialog({ title: `Teleport ${name}`, label: `To which player? (${others.join(', ')})`, value: others[0] });
         if (to) cmd(`tp ${name} ${to}`, `${name} → ${to}`);
       } },
-      { label: 'Privatnachricht …', icon: MessageSquare, onClick: async () => { const t = await promptDialog({ title: `Nachricht an ${name}`, label: 'Text' }); if (t) cmd(`tell ${name} ${t}`, 'Gesendet'); } },
-      { label: 'Inventar leeren …', icon: Trash2, onClick: async () => { if (await confirmDialog({ title: `Inventar von ${name} leeren?`, text: 'Alle Gegenstände gehen verloren.', confirm: 'Leeren', danger: true })) cmd(`clear ${name}`, 'Inventar geleert'); } },
+      { label: T('Private message …'), icon: MessageSquare, onClick: async () => { const t = await promptDialog({ title: `Message to ${name}`, label: 'Text' }); if (t) cmd(`tell ${name} ${t}`, T('Sent')); } },
+      { label: T('Clear inventory …'), icon: Trash2, onClick: async () => { if (await confirmDialog({ title: `Clear ${name}'s inventory?`, text: 'All items will be lost.', confirm: 'Empty', danger: true })) cmd(`clear ${name}`, T('Inventory cleared')); } },
     ] : []),
     '-',
-    wl ? { label: 'Von der Whitelist nehmen', icon: ShieldOff, disabled: off, hint, onClick: () => cmd(`whitelist remove ${name}`, 'Von der Whitelist entfernt') }
-      : { label: 'Zur Whitelist hinzufügen', icon: Shield, disabled: off, hint, onClick: () => cmd(`whitelist add ${name}`, 'Zur Whitelist hinzugefügt') },
-    isOnline && { label: 'Kicken …', icon: UserX, onClick: async () => { const r = await promptDialog({ title: `${name} kicken`, label: 'Grund (optional)' }); if (r !== null) cmd(`kick ${name}${r ? ' ' + r : ''}`, `${name} gekickt`); } },
-    banned ? { label: 'Bann aufheben', icon: ShieldOff, disabled: off, hint, onClick: () => cmd(`pardon ${name}`, `${name} ist nicht mehr gebannt`) }
-      : { label: 'Bannen …', icon: Ban, danger: true, disabled: off, hint, onClick: async () => { const r = await promptDialog({ title: `${name} bannen`, text: 'Der Spieler kann danach nicht mehr beitreten (aufheben unter Spieler → Gebannt).', label: 'Grund (optional)', confirm: 'Bannen' }); if (r !== null) cmd(`ban ${name}${r ? ' ' + r : ''}`, `${name} gebannt`); } },
+    wl ? { label: T('Remove from whitelist'), icon: ShieldOff, disabled: off, hint, onClick: () => cmd(`whitelist remove ${name}`, T('Removed from whitelist')) }
+      : { label: T('Add to whitelist'), icon: Shield, disabled: off, hint, onClick: () => cmd(`whitelist add ${name}`, T('Added to whitelist')) },
+    isOnline && { label: T('Kick …'), icon: UserX, onClick: async () => { const r = await promptDialog({ title: `Kick ${name}`, label: 'Reason (optional)' }); if (r !== null) cmd(`kick ${name}${r ? ' ' + r : ''}`, T(`${name} kicked`)); } },
+    banned ? { label: T('Lift ban'), icon: ShieldOff, disabled: off, hint, onClick: () => cmd(`pardon ${name}`, T(`${name} is no longer banned`)) }
+      : { label: T('Ban …'), icon: Ban, danger: true, disabled: off, hint, onClick: async () => { const r = await promptDialog({ title: `Ban ${name}`, text: 'The player can no longer join (lift it under Players → Banned).', label: 'Reason (optional)', confirm: 'Ban' }); if (r !== null) cmd(`ban ${name}${r ? ' ' + r : ''}`, T(`${name} banned`)); } },
     '-',
-    { label: 'Namen kopieren', icon: Copy, onClick: () => { navigator.clipboard.writeText(name); toast.success('Kopiert'); } },
-    { label: 'Profil auf NameMC', icon: ExternalLink, onClick: () => openExternal(`https://namemc.com/profile/${encodeURIComponent(name)}`) },
+    { label: T('Copy name'), icon: Copy, onClick: () => { navigator.clipboard.writeText(name); toast.success('Copied'); } },
+    { label: T('Profile on NameMC'), icon: ExternalLink, onClick: () => openExternal(`https://namemc.com/profile/${encodeURIComponent(name)}`) },
   ]);
 }
 
@@ -95,8 +96,8 @@ export function playerMenu(e, { s, name, lists, cmd, online = [] }) {
 export function ipMenu(e, { s, ip, cmd }) {
   const off = s.proc.state !== 'running';
   contextMenu(e, [
-    { label: 'IP-Bann aufheben', icon: ShieldOff, disabled: off, hint: off ? 'Server aus' : undefined, onClick: () => cmd(`pardon-ip ${ip}`, `${ip} ist nicht mehr gebannt`) },
-    { label: 'Adresse kopieren', icon: Copy, onClick: () => { navigator.clipboard.writeText(ip); toast.success('Kopiert'); } },
+    { label: T('Lift IP ban'), icon: ShieldOff, disabled: off, hint: off ? T('Server off') : undefined, onClick: () => cmd(`pardon-ip ${ip}`, T(`${ip} is no longer banned`)) },
+    { label: T('Copy address'), icon: Copy, onClick: () => { navigator.clipboard.writeText(ip); toast.success('Copied'); } },
   ]);
 }
 
@@ -108,9 +109,9 @@ export function PlayerButtons({ s, name, lists, online }) {
   const open = (e) => playerMenu(e, { s, name, lists, cmd, online });
   return (
     <div className="row-tight" onContextMenu={open}>
-      <button className={`btn ghost xs icon ${op ? 'mc-op-on' : ''}`} title={op ? 'Ist OP – klicken zum Entziehen' : 'OP geben'} onClick={() => cmd(op ? `deop ${name}` : `op ${name}`, op ? `${name} ist kein OP mehr` : `${name} ist jetzt OP`)}><Crown /></button>
-      <button className="btn ghost xs icon" title="Kicken" onClick={() => cmd(`kick ${name}`, `${name} gekickt`)}><UserX /></button>
-      <button className="btn ghost xs icon" title="Weitere Aktionen (auch per Rechtsklick)" onClick={open}><MoreHorizontal /></button>
+      <button className={`btn ghost xs icon ${op ? 'mc-op-on' : ''}`} title={op ? 'Is OP – click to revoke' : 'Make operator'} onClick={() => cmd(op ? `deop ${name}` : `op ${name}`, op ? T(`${name} is no longer OP`) : T(`${name} is now OP`))}><Crown /></button>
+      <button className="btn ghost xs icon" title="Kick" onClick={() => cmd(`kick ${name}`, T(`${name} kicked`))}><UserX /></button>
+      <button className="btn ghost xs icon" title="More actions (also via right-click)" onClick={open}><MoreHorizontal /></button>
     </div>
   );
 }
@@ -125,7 +126,7 @@ export function usePlayerContext(s, lists, online) {
  * Spieler wählen (OP hinzufügen, bannen, Whitelist): Online-Spieler zum Anklicken – oder Namen eintippen.
  * exclude: wer schon in der Liste steht, wird nicht angeboten.
  */
-export function PlayerPick({ title, online = [], exclude = () => false, reason = false, confirm = 'Hinzufügen', danger = false, onPick, onClose }) {
+export function PlayerPick({ title, online = [], exclude = () => false, reason = false, confirm = T('Add'), danger = false, onPick, onClose }) {
   const [name, setName] = useState('');
   const [why, setWhy] = useState('');
   const valid = /^[A-Za-z0-9_]{2,16}$/.test(name);
@@ -133,11 +134,11 @@ export function PlayerPick({ title, online = [], exclude = () => false, reason =
   const done = (n) => { onPick(n, why.trim()); onClose(); };
   return (
     <Modal title={title} onClose={onClose}
-      footer={<><button className="btn ghost" onClick={onClose}>Abbrechen</button><button className={`btn ${danger ? 'danger-solid' : 'primary'}`} disabled={!valid} onClick={() => done(name)}>{confirm}</button></>}>
+      footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className={`btn ${danger ? 'danger-solid' : 'primary'}`} disabled={!valid} onClick={() => done(name)}>{confirm}</button></>}>
       <div className="stack">
         {offer.length > 0 && (
           <div className="field">
-            <label>Gerade online</label>
+            <label>Online now</label>
             <div className="mc-pick">
               {offer.map((n) => (
                 <button key={n} className={`mc-pick-item ${same(n, name) ? 'active' : ''}`} onClick={() => (reason ? setName(n) : done(n))}>
@@ -147,13 +148,13 @@ export function PlayerPick({ title, online = [], exclude = () => false, reason =
             </div>
           </div>
         )}
-        {online.length > 0 && offer.length === 0 && <div className="small muted">Alle Online-Spieler stehen schon in dieser Liste.</div>}
+        {online.length > 0 && offer.length === 0 && <div className="small muted">All online players are already on this list.</div>}
         <div className="field">
-          <label>{offer.length ? 'Oder Namen eingeben' : 'Spielername'}</label>
-          <input className="input" autoFocus={!offer.length} value={name} onChange={(e) => setName(e.target.value.trim())} onKeyDown={(e) => { if (e.key === 'Enter' && valid) done(name); }} placeholder="z. B. Notch" />
-          {name && !valid && <span className="hint" style={{ color: 'var(--err-text)' }}>2–16 Zeichen: Buchstaben, Ziffern, _</span>}
+          <label>{offer.length ? 'Or enter a name' : 'Player name'}</label>
+          <input className="input" autoFocus={!offer.length} value={name} onChange={(e) => setName(e.target.value.trim())} onKeyDown={(e) => { if (e.key === 'Enter' && valid) done(name); }} placeholder="e.g. Notch" />
+          {name && !valid && <span className="hint" style={{ color: 'var(--err-text)' }}>2–16 characters: letters, digits, _</span>}
         </div>
-        {reason && <div className="field"><label>Grund (optional)</label><input className="input" value={why} onChange={(e) => setWhy(e.target.value)} /></div>}
+        {reason && <div className="field"><label>Reason (optional)</label><input className="input" value={why} onChange={(e) => setWhy(e.target.value)} /></div>}
       </div>
     </Modal>
   );
@@ -161,15 +162,15 @@ export function PlayerPick({ title, online = [], exclude = () => false, reason =
 
 /* ------------------------------------------------------------------ Statistik */
 const dur = (ms) => { const h = Math.floor(ms / 3600000); const m = Math.round((ms % 3600000) / 60000); return h ? `${h} h ${m} min` : `${m} min`; };
-const ago = (t) => { if (!t) return '–'; const d = Date.now() - t; if (d < 120000) return 'gerade eben'; if (d < 3600000) return `vor ${Math.round(d / 60000)} min`; if (d < 86400000) return `vor ${Math.round(d / 3600000)} h`; return `vor ${Math.round(d / 86400000)} Tagen`; };
+const ago = (t) => { if (!t) return '–'; const d = Date.now() - t; if (d < 120000) return T('just now'); if (d < 3600000) return `vor ${Math.round(d / 60000)} min`; if (d < 86400000) return `vor ${Math.round(d / 3600000)} h`; return T(`${Math.round(d / 86400000)} days ago`); };
 const COLS = [
-  ['playMs', 'Spielzeit', (p) => dur(p.playMs)],
-  ['sessions', 'Besuche', (p) => p.sessions || '–'],
-  ['last', 'Zuletzt', (p) => (p.online ? <span className="badge ok">online</span> : ago(p.last))],
-  ['deaths', 'Tode', (p) => (p.world ? p.world.deaths : '–')],
-  ['mobKills', 'Mob-Kills', (p) => (p.world ? p.world.mobKills : '–')],
-  ['mined', 'Abgebaut', (p) => (p.world ? p.world.mined.toLocaleString(locale()) : '–')],
-  ['distanceKm', 'Strecke', (p) => (p.world ? `${String(p.world.distanceKm).replace('.', ',')} km` : '–')],
+  ['playMs', 'Play time', (p) => dur(p.playMs)],
+  ['sessions', 'Visits', (p) => p.sessions || '–'],
+  ['last', 'Last seen', (p) => (p.online ? <span className="badge ok">online</span> : ago(p.last))],
+  ['deaths', 'Deaths', (p) => (p.world ? p.world.deaths : '–')],
+  ['mobKills', 'Mob kills', (p) => (p.world ? p.world.mobKills : '–')],
+  ['mined', 'Mined', (p) => (p.world ? p.world.mined.toLocaleString(locale()) : '–')],
+  ['distanceKm', 'Distance', (p) => (p.world ? `${String(p.world.distanceKm).replace('.', ',')} km` : '–')],
 ];
 const val = (p, k) => (k === 'playMs' || k === 'sessions' || k === 'last' ? p[k] || 0 : p.world ? p.world[k] || 0 : -1);
 
@@ -180,20 +181,20 @@ export function StatsTab({ s }) {
   const d = st.data;
   const list = [...d.players].sort((a, b) => val(b, sort) - val(a, sort));
   const maxDay = Math.max(1, ...d.days.map((x) => x.unique));
-  if (!d.players.length) return <div className="card card-pad"><b>Noch keine Statistik</b><div className="small muted">Sobald Spieler auf dem Server waren, erscheinen hier Spielzeit, Besuche, Tode, Kills und mehr.</div></div>;
+  if (!d.players.length) return <div className="card card-pad"><b>No statistics yet</b><div className="small muted">As soon as players have been on the server, play time, visits, deaths, kills and more appear here.</div></div>;
   return (
     <div className="stack">
       <div className="grid grid-4">
-        <div className="card stat"><div className="k">Spieler</div><div className="v">{d.totals.players}</div><div className="s">{d.totals.activeWeek} in den letzten 7 Tagen</div></div>
-        <div className="card stat"><div className="k">Spielzeit gesamt</div><div className="v text">{dur(d.totals.playMs)}</div><div className="s">{d.totals.sessions} Besuche</div></div>
-        <div className="card stat"><div className="k">Top-Spieler</div><div className="v text ellipsis">{list[0] ? <span className="row-tight"><PlayerHead name={list[0].name} size={28} />{list[0].name}</span> : '–'}</div><div className="s">{list[0] ? dur(list[0].playMs) : ''}</div></div>
-        <div className="card stat"><div className="k">Abgebaute Blöcke</div><div className="v">{d.totals.mined.toLocaleString(locale())}</div><div className="s">{d.totals.deaths} Tode insgesamt</div></div>
+        <div className="card stat"><div className="k">Players</div><div className="v">{d.totals.players}</div><div className="s">{d.totals.activeWeek} in the last 7 days</div></div>
+        <div className="card stat"><div className="k">Total play time</div><div className="v text">{dur(d.totals.playMs)}</div><div className="s">{d.totals.sessions} Visits</div></div>
+        <div className="card stat"><div className="k">Top player</div><div className="v text ellipsis">{list[0] ? <span className="row-tight"><PlayerHead name={list[0].name} size={28} />{list[0].name}</span> : '–'}</div><div className="s">{list[0] ? dur(list[0].playMs) : ''}</div></div>
+        <div className="card stat"><div className="k">Blocks mined</div><div className="v">{d.totals.mined.toLocaleString(locale())}</div><div className="s">{d.totals.deaths} deaths in total</div></div>
       </div>
       <div className="card">
-        <div className="card-head"><h3>Aktivität der letzten 14 Tage</h3><span className="tiny muted">verschiedene Spieler je Tag · Spitze gleichzeitig</span></div>
+        <div className="card-head"><h3>Activity in the last 14 days</h3><span className="tiny muted">different players per day · peak concurrent</span></div>
         <div className="card-body mc-days">
           {d.days.map((x) => (
-            <div key={x.date} className="mc-day" title={`${new Date(x.date).toLocaleDateString(locale())}: ${x.unique} Spieler, gleichzeitig bis ${x.peak}`}>
+            <div key={x.date} className="mc-day" title={`${new Date(x.date).toLocaleDateString(locale())}: ${x.unique} players, up to ${x.peak} at once`}>
               <div className="mc-day-bar"><div style={{ height: `${(x.unique / maxDay) * 100}%` }} /></div>
               <span className="tiny muted">{new Date(x.date).toLocaleDateString(locale(), { weekday: 'short' }).slice(0, 2)}</span>
             </div>
@@ -202,9 +203,9 @@ export function StatsTab({ s }) {
       </div>
       <ActivityCard activity={d.activity} />
       <div className="card">
-        <div className="card-head"><h3>Rangliste</h3><span className="tiny muted">Klick auf eine Spalte sortiert</span></div>
+        <div className="card-head"><h3>Leaderboard</h3><span className="tiny muted">Click a column to sort</span></div>
         <table className="table">
-          <thead><tr><th>#</th><th>Spieler</th>{COLS.map(([k, label]) => <th key={k} className={`num sortable ${sort === k ? 'active' : ''}`} onClick={() => setSort(k)}>{label}{sort === k ? ' ▾' : ''}</th>)}</tr></thead>
+          <thead><tr><th>#</th><th>Players</th>{COLS.map(([k, label]) => <th key={k} className={`num sortable ${sort === k ? 'active' : ''}`} onClick={() => setSort(k)}>{label}{sort === k ? ' ▾' : ''}</th>)}</tr></thead>
           <tbody>
             {list.map((p, i) => (
               <tr key={p.name}>

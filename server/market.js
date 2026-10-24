@@ -10,6 +10,7 @@ const path = require('path');
 const { runJob } = require('./hw').core('jobs');
 const { fetchJson, downloadFile, cached } = require('./hw').core('download');
 const { providers } = require('./providers');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 
 const MR = 'https://api.modrinth.com/v2';
 const HG = 'https://hangar.papermc.io/api/v1';
@@ -17,23 +18,23 @@ const LIMIT = 20;
 
 /** Gemeinsame Kategorien → Modrinth-Kategorie / Hangar-Kategorie (null = Quelle hat keine passende). */
 const CATEGORIES = [
-  { id: 'admin', label: 'Verwaltung', modrinth: 'management', hangar: 'admin_tools' },
-  { id: 'protection', label: 'Schutz & Anti-Cheat', modrinth: null, hangar: 'protection' },
-  { id: 'chat', label: 'Chat & Soziales', modrinth: 'social', hangar: 'chat' },
-  { id: 'economy', label: 'Wirtschaft', modrinth: 'economy', hangar: 'economy' },
-  { id: 'gameplay', label: 'Spielmechanik', modrinth: 'game-mechanics', hangar: 'gameplay' },
-  { id: 'minigames', label: 'Minispiele', modrinth: 'minigame', hangar: 'games' },
-  { id: 'world', label: 'Welten', modrinth: 'worldgen', hangar: 'world_management' },
-  { id: 'rpg', label: 'Abenteuer & RPG', modrinth: 'adventure', hangar: 'role_playing' },
-  { id: 'performance', label: 'Leistung', modrinth: 'optimization', hangar: null },
-  { id: 'utility', label: 'Werkzeuge', modrinth: 'utility', hangar: 'misc' },
-  { id: 'library', label: 'Bibliotheken', modrinth: 'library', hangar: 'dev_tools' },
+  { id: 'admin', label: 'Administration', modrinth: 'management', hangar: 'admin_tools' },
+  { id: 'protection', label: 'Protection & anti-cheat', modrinth: null, hangar: 'protection' },
+  { id: 'chat', label: 'Chat & social', modrinth: 'social', hangar: 'chat' },
+  { id: 'economy', label: 'Economy', modrinth: 'economy', hangar: 'economy' },
+  { id: 'gameplay', label: 'Gameplay', modrinth: 'game-mechanics', hangar: 'gameplay' },
+  { id: 'minigames', label: 'Minigames', modrinth: 'minigame', hangar: 'games' },
+  { id: 'world', label: 'Worlds', modrinth: 'worldgen', hangar: 'world_management' },
+  { id: 'rpg', label: 'Adventure & RPG', modrinth: 'adventure', hangar: 'role_playing' },
+  { id: 'performance', label: 'Performance', modrinth: 'optimization', hangar: null },
+  { id: 'utility', label: 'Tools', modrinth: 'utility', hangar: 'misc' },
+  { id: 'library', label: 'Libraries', modrinth: 'library', hangar: 'dev_tools' },
   // Nur für Mod-Server
-  { id: 'tech', label: 'Technik', modrinth: 'technology', hangar: null, mods: true },
-  { id: 'magic', label: 'Magie', modrinth: 'magic', hangar: null, mods: true },
-  { id: 'storage', label: 'Lager', modrinth: 'storage', hangar: null, mods: true },
-  { id: 'mobs', label: 'Kreaturen', modrinth: 'mobs', hangar: null, mods: true },
-  { id: 'decoration', label: 'Deko & Bauen', modrinth: 'decoration', hangar: null, mods: true },
+  { id: 'tech', label: 'Tech', modrinth: 'technology', hangar: null, mods: true },
+  { id: 'magic', label: 'Magic', modrinth: 'magic', hangar: null, mods: true },
+  { id: 'storage', label: 'Storage', modrinth: 'storage', hangar: null, mods: true },
+  { id: 'mobs', label: 'Creatures', modrinth: 'mobs', hangar: null, mods: true },
+  { id: 'decoration', label: 'Decoration & building', modrinth: 'decoration', hangar: null, mods: true },
 ];
 const SORTS = { relevance: { modrinth: 'relevance', hangar: '-downloads' }, downloads: { modrinth: 'downloads', hangar: '-downloads' }, updated: { modrinth: 'updated', hangar: '-updated' }, newest: { modrinth: 'newest', hangar: '-newest' } };
 
@@ -96,7 +97,7 @@ class PluginMarket {
     const settled = await Promise.allSettled(jobs);
     const errors = settled.filter((r) => r.status === 'rejected').map((r) => r.reason.message);
     const lists = settled.filter((r) => r.status === 'fulfilled').map((r) => r.value);
-    if (!lists.length && errors.length) throw new Error('Marktplatz nicht erreichbar: ' + errors[0]);
+    if (!lists.length && errors.length) throw new Error(T('Marketplace not reachable: {error}', { error: errors[0] }));
     // Beide Listen abwechselnd mischen; Doppelte (gleicher Name auf beiden Seiten) nur einmal – bevorzugt mit Datei-Download
     const merged = [];
     const seen = new Map();
@@ -163,7 +164,7 @@ class PluginMarket {
         source, id: p.id, slug: p.slug, title: p.title, description: p.description, body: p.body || '', icon: p.icon_url, downloads: p.downloads, follows: p.followers,
         author: (owner.find((m) => m.role === 'Owner') || owner[0] || {}).user?.username || null, license: p.license && p.license.id, updated: p.updated, published: p.published,
         categories: p.categories, gallery: (p.gallery || []).slice(0, 8).map((g) => ({ url: g.url, title: g.title })),
-        links: [['Seite auf Modrinth', `https://modrinth.com/${p.project_type || 'plugin'}/${p.slug}`], ['Quellcode', p.source_url], ['Fehler melden', p.issues_url], ['Wiki', p.wiki_url], ['Discord', p.discord_url]].filter(([, u]) => u).map(([label, url]) => ({ label, url })),
+        links: [['Page on Modrinth', `https://modrinth.com/${p.project_type || 'plugin'}/${p.slug}`], ['Source code', p.source_url], ['Report a bug', p.issues_url], ['Wiki', p.wiki_url], ['Discord', p.discord_url]].filter(([, u]) => u).map(([label, url]) => ({ label, url })),
         versions: vs, recommended: (vs.find((v) => v.fits && v.type === 'release') || vs.find((v) => v.fits) || {}).id || null, serverVersion: version, compat: compatSummary(vs, version),
       };
     }
@@ -184,21 +185,21 @@ class PluginMarket {
         source, id: p.namespace.slug, slug: p.namespace.slug, title: p.name, description: p.description, body: p.mainPageContent || '', icon: p.avatarUrl, downloads: p.stats.downloads, follows: p.stats.stars,
         author: p.namespace.owner, license: p.settings && p.settings.license && (p.settings.license.name || p.settings.license.type), updated: p.lastUpdated, published: p.createdAt,
         categories: [p.category], gallery: [],
-        links: [{ label: 'Seite auf Hangar', url: `https://hangar.papermc.io/${p.namespace.owner}/${p.namespace.slug}` }, ...((p.settings && p.settings.links) || []).flatMap((g) => g.links || []).filter((l) => /^https:\/\//.test(l.url)).slice(0, 6).map((l) => ({ label: l.name, url: l.url }))],
+        links: [{ label: T('Page on Hangar'), url: `https://hangar.papermc.io/${p.namespace.owner}/${p.namespace.slug}` }, ...((p.settings && p.settings.links) || []).flatMap((g) => g.links || []).filter((l) => /^https:\/\//.test(l.url)).slice(0, 6).map((l) => ({ label: l.name, url: l.url }))],
         versions: vs, recommended: (vs.find((v) => v.fits && v.type === 'release') || vs.find((v) => v.fits) || {}).id || null, serverVersion: version, compat: compatSummary(vs, version),
       };
     }
-    throw new Error('Unbekannte Quelle');
+    throw new Error(T('Unknown source'));
   }
 
   /* ---------- Installieren ---------- */
   install(id, { source, id: pid, version: wanted }) {
     const s = this.mc.get(id);
-    return runJob(`${this.mc.content(s) === 'mods' ? 'Mod' : 'Plugin'} installieren auf „${s.name}“`, async (job) => {
+    return runJob(T('Install {v1} on “{name}”', { v1: this.mc.content(s) === 'mods' ? 'Mod' : 'Plugin', name: s.name }), async (job) => {
       const d = await this.detail(id, source, pid);
       const v = d.versions.find((x) => x.id === wanted) || d.versions.find((x) => x.id === d.recommended);
-      if (!v) throw new Error(`Keine passende Version von ${d.title} für ${(providers[s.type] && providers[s.type].label) || s.type} ${s.version} gefunden.`);
-      if (!v.fits) job.log(`Achtung: ${v.number} ist nicht ausdrücklich für ${s.version} freigegeben.`);
+      if (!v) throw new Error(T('No matching version of {title} found for {v2} {version}.', { title: d.title, v2: (providers[s.type] && providers[s.type].label) || s.type, version: s.version }));
+      if (!v.fits) job.log(T('Warning: {number} is not explicitly approved for {version}.', { number: v.number, version: s.version }));
       const dir = this.mc.addonDir(id);
       fs.mkdirSync(dir, { recursive: true });
       let url, filename, hash = {};
@@ -212,7 +213,7 @@ class PluginMarket {
         url = dl.downloadUrl || dl.externalUrl;
         filename = (dl.fileInfo && dl.fileInfo.name) || `${d.slug}-${v.number}.jar`;
         if (dl.fileInfo && dl.fileInfo.sha256Hash) hash = { sha256: dl.fileInfo.sha256Hash };
-        if (!dl.downloadUrl) job.log(`Download über die Seite des Herstellers: ${url}`);
+        if (!dl.downloadUrl) job.log(T('Download from the vendor\'s site: {url}', { url }));
       }
       filename = path.basename(filename).replace(/[^\w.+-]/g, '_');
       if (!/\.jar$/i.test(filename)) filename += '.jar';
@@ -221,9 +222,9 @@ class PluginMarket {
       const old = Object.entries(src).find(([, x]) => x.source === source && x.id === d.id);
       const target = path.join(dir, filename);
       job.log(`${d.title} ${v.number} (${source === 'modrinth' ? 'Modrinth' : 'Hangar'})`);
-      await downloadFile(url, target + '.neu', { ...hash, onProgress: (r, t) => job.progress(t ? (r / t) * 100 : 50, `${filename} herunterladen`) });
+      await downloadFile(url, target + '.neu', { ...hash, onProgress: (r, t) => job.progress(t ? (r / t) * 100 : 50, T('Download {filename}', { filename })) });
       const head = Buffer.alloc(2); const fd = fs.openSync(target + '.neu', 'r'); fs.readSync(fd, head, 0, 2, 0); fs.closeSync(fd);
-      if (head.toString() !== 'PK') { fs.rmSync(target + '.neu', { force: true }); throw new Error('Der Download ist keine JAR-Datei (evtl. muss sie auf der Herstellerseite heruntergeladen werden).'); }
+      if (head.toString() !== 'PK') { fs.rmSync(target + '.neu', { force: true }); throw new Error(T('The download isn\'t a JAR file (it may have to be downloaded on the vendor\'s page).')); }
       // Update eines installierten Plugins bei laufendem Server: alte JAR ist gesperrt → sicherer Weg (live tauschen oder einreihen)
       const oldLive = old && fs.existsSync(path.join(dir, old[0])) ? old[0] : fs.existsSync(target) ? filename : null;
       if (oldLive && this.mc.proc(id).isRunning() && this.mc.placeAddon) {
@@ -231,7 +232,7 @@ class PluginMarket {
         if (r.mode === 'queued') { src[oldLive] = { ...src[oldLive], pending: v.number }; if (oldLive !== filename) src[filename] = { source, id: d.id, title: d.title, version: v.number, versionId: v.id, installedAt: Date.now() }; }
         else { if (oldLive !== filename) delete src[oldLive]; src[filename] = { source, id: d.id, title: d.title, version: v.number, versionId: v.id, installedAt: Date.now() }; }
         this.saveSources(id, src);
-        job.log(r.mode === 'queued' ? 'Wartet – wird beim nächsten Stopp oder Neustart eingespielt.' : 'Live ausgetauscht – ohne Neustart.');
+        job.log(r.mode === 'queued' ? T('Waiting – will be applied at the next stop or restart.') : T('Swapped live – no restart.'));
         return { file: filename, title: d.title, version: v.number, mode: r.mode, needsRestart: false };
       }
       if (old && old[0] !== filename) { fs.rmSync(path.join(dir, old[0]), { force: true }); fs.rmSync(path.join(dir, old[0] + '.disabled'), { force: true }); delete src[old[0]]; }

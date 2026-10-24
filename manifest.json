@@ -14,6 +14,7 @@
   "homepage": "https://github.com/Passimoritz/hostwerk-ext-minecraft",
   "license": "MIT",
   "icon": "icon.svg",
+  "banner": "banner.svg",
   "color": "#23964a",
   "category": "games",
   "hostwerk": ">=3.1.0",
@@ -34,5 +35,9 @@
     "nav": false
   },
   "backend": "server/index.js",
-  "ui": "ui/index.js"
+  "ui": "ui/index.js",
+  "screenshots": [
+    "docs/screenshot.png",
+    "docs/screenshot.de.png"
+  ]
 }

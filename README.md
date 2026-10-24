@@ -1,34 +1,57 @@
-<p align="right"><b>English</b> · <a href="README.de.md">Deutsch</a></p>
+![Minecraft servers](banner.svg)
 
-# Minecraft servers for Hostwerk
+# Minecraft servers
 
-Minecraft servers with Paper, Purpur, Folia, Fabric, NeoForge, Forge, Velocity, Bedrock and modpacks – built into Hostwerk up to
-3.0, this official extension since 3.1. Anyone who already had servers gets it automatically with the update; worlds, settings
-and backups stay where they always were.
+Minecraft servers with Paper, Purpur, Folia, Fabric, NeoForge, Forge, Velocity, Bedrock and modpacks: create or take over, console, players, plugins and mods from Modrinth and Hangar, plugin live update without restart, worlds with all dimensions, health in detail, backups, schedule, safe updates with a trial run.
 
-- Create or take over servers, console, players (op, whitelist, bans by right-click), statistics
-- Plugins and mods from Modrinth and Hangar, own sources (GitHub, SpigotMC, Jenkins, project folders)
-- **Plugin live update** without restart through the helper plugin HostwerkBridge – also for plugins others depend on
-- **Health in detail**: CPU and RAM as “server / system”, Java memory, CPU per task, worlds, plugins, disk space
-- **Worlds with all dimensions** (also from datapacks and mods), reset one by one; icons from the catalog or built from the
-  dimension's real properties
+[Deutsch](README.de.md) · An official [Hostwerk](https://github.com/Passimoritz/hostwerk-public) extension (SDK 3.4, native extension)
+
+![Screenshot](docs/screenshot.png)
+
+## What it does
+
+- **Where:** Minecraft in the sidebar (`#/mc`, as before) – each server with overview, console, players, plugins/mods, worlds, backups and settings
+- **Create or take over** servers: Paper, Purpur, Folia, Fabric, NeoForge, Forge, Velocity, Bedrock Dedicated Server and modpacks (Modrinth, CurseForge); existing server folders are taken over where they are
+- **Console** with command suggestions, **players** with op, whitelist and bans by right-click, statistics and activity per weekday
+- **Plugins and mods** from Modrinth and Hangar, own sources (GitHub, SpigotMC, Jenkins, own project folder), forms for the settings of popular plugins
+- **Plugin live update** without restart through the helper plugin HostwerkBridge – also for plugins others depend on (they are reloaded with it); a deploy script or folder watch for your own plugin projects
+- **Health in detail:** CPU and RAM as “server / system”, Java memory, CPU per task, worlds, plugins and disk space
+- **Worlds with all dimensions** (also from datapacks and mods), reset one by one; icons from the catalog or built from the dimension's real properties
 - MOTD and server icon right away, without restart; crop the icon
-- Backups, schedule, server check, safe updates with a trial run, map (BlueMap)
+- Backups, schedule, server check, safe version jumps with plugin check and a trial run on a copy, map (BlueMap), test copy of a server
+- An update of the extension keeps running servers running – the new version takes over their processes
 
-## For other extensions
+For other extensions (service `minecraft`, `ctx.minecraft`):
 
-Provides `ctx.minecraft` (server network, MOTD studio, player ticker …). Without this extension Hostwerk puts in a placeholder:
-no servers, otherwise a clear “now an extension” message.
-
-## Development
-
-```bash
-node path/to/hostwerk/server/extensions/sdk/build-native.js .
+```js
+minecraft.list();          // [{ id, name, type, version, port, … }]
+minecraft.info(server);    // details incl. process state, players and address
+minecraft.command(id, 'say Hello');
 ```
 
+Extensions that need it name it under `requires` (`"minecraft": ">=1.0.0"`). Without this extension Hostwerk puts in a placeholder: no servers, otherwise a clear “Minecraft servers are an extension now” message.
+
+## Install
+
+In Hostwerk: **Extensions → Discover** and click “Install”. If you already had Minecraft servers in Hostwerk 3.0 or older, the update to 3.1 installs the extension by itself – with all servers.
+
+Native extensions run as part of Hostwerk (own server and interface part). That is why Hostwerk only installs them from the official catalogue (with checksum) or in developer mode.
+
+## Data
+
+`settings.minecraft` (the list of servers), the server folders under `Hostwerk/minecraft/<id>` (or wherever a taken-over server lives) and backups under `Hostwerk/backups/minecraft/<id>` – exactly where Hostwerk always kept them. Removing the extension stops the servers and deletes nothing.
+
+## Develop
+
 ```bash
-node --test tests/
+node --test tests/*.test.js          # tests (no running Hostwerk needed)
+node build-native.js .               # build the interface (sdk/build-native.js from hostwerk-public)
+node check.js . --strict             # same check as the catalogue (sdk/check.js)
+node tools/shots.js                  # README pictures from a throwaway Hostwerk
 ```
 
-The bridge (`server/bridge`) builds with Maven: `mvn -q package`, then copy `target/HostwerkBridge.jar` to `server/bridge/`.
-The interface has German source text (taken over from the core); English comes from Hostwerk's `en.json` (SDK 3.4).
+Interface source in `ui/src`, server part in `server/`. Texts in the code are English, German is in `locales/de.json`. The helper plugin (`server/bridge`) builds with Maven: `mvn -q package`, then copy `target/HostwerkBridge.jar` to `server/bridge/`.
+
+## License
+
+MIT

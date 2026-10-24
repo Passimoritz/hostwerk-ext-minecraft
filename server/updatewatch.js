@@ -10,6 +10,7 @@ const { broadcast } = require('./hw').core('events');
 const { providers } = require('./providers');
 const { cmpVersion } = require('./hw').core('download');
 const { backgroundOnline } = require('./hw').core('testmode');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 
 class UpdateWatch {
   constructor(mc) {
@@ -80,7 +81,7 @@ class UpdateWatch {
       if (out.mcVersion && s.autoServerUpdates !== false && !(p.extra.players || []).length) {
         try {
           await this.mc.bedrock.update(id).promise;
-          broadcast({ type: 'toast', kind: 'info', text: `${s.name}: Bedrock ${out.mcVersion} eingespielt.` });
+          broadcast({ type: 'toast', kind: 'info', text: T('{name}: Bedrock {mcVersion} installed.', { name: s.name, mcVersion: out.mcVersion }) });
           out.mcVersion = null;
         } catch { /* zurückgenommen oder offline – nächster Lauf */ }
       }
@@ -98,7 +99,7 @@ class UpdateWatch {
       if (out.server && s.autoServerUpdates !== false && !this.mc.proc(id).isRunning()) {
         try {
           await this.mc.changeVersion(id, { type: s.type, version: s.version }).promise;
-          broadcast({ type: 'toast', kind: 'info', text: `${s.name}: ${prov.label} ${s.version} Build #${out.server.build} eingespielt.` });
+          broadcast({ type: 'toast', kind: 'info', text: T('{name}: {label} {version} build #{build} applied.', { name: s.name, label: prov.label, version: s.version, build: out.server.build }) });
           out.server = null;
         } catch { /* nächster Lauf */ }
       }
@@ -120,7 +121,7 @@ class UpdateWatch {
         if (up.length && this.cfg.autoPluginUpdates !== false && this.mc.get(id).autoPluginUpdates !== false && this.mc.content(s) !== 'mods') {
           try {
             const r = await this.mc.updatePlugins(id).promise;
-            if (r && r.updated) { out.autoUpdated = out.names.slice(); out.addons = 0; broadcast({ type: 'toast', kind: 'info', text: `${s.name}: ${r.updated} Plugin-Update${r.updated > 1 ? 's' : ''} eingespielt${r.needsRestart ? ' – wirkt nach dem nächsten Neustart' : ''}.` }); }
+            if (r && r.updated) { out.autoUpdated = out.names.slice(); out.addons = 0; broadcast({ type: 'toast', kind: 'info', text: T(r.updated > 1 ? '{name}: {n} plugin updates applied' : '{name}: {n} plugin update applied', { name: s.name, n: r.updated }) + (r.needsRestart ? T(' – takes effect after the next restart') : '') + '.' }); }
           } catch { /* nächster Lauf */ }
         }
       }
@@ -145,7 +146,7 @@ class UpdateWatch {
     if (u.addons) parts.push(`${u.addons} ${W}-Update${u.addons > 1 ? 's' : ''}`);
     if (u.server) parts.push(`Server-Build #${u.server.build}`);
     if (u.mcVersion) parts.push(`Minecraft ${u.mcVersion}`);
-    broadcast({ type: 'toast', kind: 'warn', text: `${s.name}: ${parts.join(' und ')} verfügbar – unter „${u.addons ? `${W}s` : 'Version'}“ einspielen.` });
+    broadcast({ type: 'toast', kind: 'warn', text: T('{name}: {v2} available – install it under “{v3}”.', { name: s.name, v2: parts.join(T(' and ')), v3: u.addons ? `${W}s` : 'Version' }) });
   }
 
   async applyPending() {

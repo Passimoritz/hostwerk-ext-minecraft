@@ -4,6 +4,7 @@
 const net = require('net');
 const dgram = require('dgram');
 const http = require('http');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 
 function varInt(n) {
   const out = [];
@@ -46,7 +47,7 @@ function ping(port, host = '127.0.0.1', timeout = 4000) {
     const sock = net.connect({ host, port });
     let buf = Buffer.alloc(0);
     const done = (err, val) => { sock.destroy(); clearTimeout(t); err ? reject(err) : resolve(val); };
-    const t = setTimeout(() => done(new Error('Zeitüberschreitung')), timeout);
+    const t = setTimeout(() => done(new Error(T('Timeout'))), timeout);
     sock.on('error', (e) => done(e));
     sock.on('connect', () => {
       const portBuf = Buffer.alloc(2); portBuf.writeUInt16BE(port);

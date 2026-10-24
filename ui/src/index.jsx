@@ -1,5 +1,6 @@
 import Minecraft from './Minecraft';
 import MinecraftServer from './MinecraftServer';
+import './style.css';
 
 /*
  * Seite der Erweiterung „Minecraft-Server“. Hostwerk zeigt sie unter den gewohnten Adressen #/mc/… (App.jsx reicht den

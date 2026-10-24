@@ -8,156 +8,157 @@
 const fs = require('fs');
 const path = require('path');
 const YAML = require('./hw').lib('yaml');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 
 const F = (key, label, type, help) => ({ key, label, type, help });
 const FORMS = [
   { id: 'essentials', name: 'EssentialsX', folders: ['Essentials'], file: 'config.yml', fields: [
-    F('locale', 'Sprache', 'text', 'Sprache der Meldungen, z. B. de oder en. Leer = Sprache des Servers.'),
-    F('teleport-delay', 'Teleport-Verzögerung (s)', 'number', 'So lange müssen Spieler stillstehen, bevor /home, /tpa & Co. sie teleportieren.'),
-    F('teleport-cooldown', 'Teleport-Abklingzeit (s)', 'number', 'Mindestabstand zwischen zwei Teleports.'),
-    F('heal-cooldown', 'Heilen-Abklingzeit (s)', 'number', 'Wie oft /heal genutzt werden darf.'),
-    F('nickname-prefix', 'Vorsatz für Spitznamen', 'text', 'Zeichen vor Spitznamen (/nick), damit man sie von echten Namen unterscheidet.'),
-    F('max-nick-length', 'Spitzname höchstens (Zeichen)', 'number', 'Längster erlaubter Spitzname.'),
-    F('change-displayname', 'Anzeigenamen ändern', 'bool', 'Spitznamen und Farben im Chat anzeigen.'),
-    F('auto-afk', 'Automatisch abwesend nach (s)', 'number', 'Nach dieser Zeit ohne Bewegung gilt ein Spieler als AFK. 0 = aus.'),
-    F('auto-afk-kick', 'AFK-Spieler entfernen nach (s)', 'number', 'Abwesende Spieler werden nach dieser Zeit gekickt. -1 = nie.'),
-    F('spawn-on-join', 'Beim Betreten zum Spawn', 'bool', 'Spieler landen bei jedem Betreten am Spawn (EssentialsSpawn).'),
-    F('respawn-at-home', 'Nach dem Tod nach Hause', 'bool', 'Wiedereinstieg am eigenen /home statt am Spawn.'),
-    F('currency-symbol', 'Währungszeichen', 'text', 'Zeichen vor Geldbeträgen, z. B. $ oder €.'),
-    F('starting-balance', 'Startguthaben', 'number', 'Geld, das neue Spieler bekommen.'),
-    F('chat.radius', 'Chat-Reichweite (Blöcke)', 'number', 'Nur Spieler in dieser Entfernung lesen mit (EssentialsChat). 0 = alle.'),
-    F('chat.format', 'Chat-Format', 'text', 'Aussehen einer Chatzeile, z. B. <{DISPLAYNAME}> {MESSAGE}.'),
+    F('locale', 'Language', 'text', 'Language of the messages, e.g. de or en. Empty = language of the server.'),
+    F('teleport-delay', 'Teleport delay (s)', 'number', 'How long players have to stand still before /home, /tpa & co. teleport them.'),
+    F('teleport-cooldown', 'Teleport cooldown (s)', 'number', 'Minimum time between two teleports.'),
+    F('heal-cooldown', 'Heal cooldown (s)', 'number', 'How often /heal may be used.'),
+    F('nickname-prefix', 'Nickname prefix', 'text', 'Character in front of nicknames (/nick) to tell them apart from real names.'),
+    F('max-nick-length', 'Nickname at most (characters)', 'number', 'Longest allowed nickname.'),
+    F('change-displayname', 'Change display names', 'bool', 'Show nicknames and colours in the chat.'),
+    F('auto-afk', 'Away automatically after (s)', 'number', 'After this time without moving a player counts as AFK. 0 = off.'),
+    F('auto-afk-kick', 'Remove AFK players after (s)', 'number', 'Away players are kicked after this time. -1 = never.'),
+    F('spawn-on-join', 'To spawn on join', 'bool', 'Players land at the spawn every time they join (EssentialsSpawn).'),
+    F('respawn-at-home', 'Home after death', 'bool', 'Respawn at their own /home instead of the spawn.'),
+    F('currency-symbol', 'Currency symbol', 'text', 'Character in front of amounts of money, e.g. $ or €.'),
+    F('starting-balance', 'Starting balance', 'number', 'Money new players get.'),
+    F('chat.radius', 'Chat range (blocks)', 'number', 'Only players within this distance can read along (EssentialsChat). 0 = everyone.'),
+    F('chat.format', 'Chat format', 'text', 'Look of a chat line, e.g. <{DISPLAYNAME}> {MESSAGE}.'),
   ] },
   { id: 'luckperms', name: 'LuckPerms', folders: ['LuckPerms'], file: 'config.yml', fields: [
-    F('server', 'Servername', 'text', 'Name dieses Servers für serverabhängige Rechte (wichtig im Netzwerk).'),
-    F('storage-method', 'Speicher', ['h2', 'sqlite', 'mysql', 'mariadb', 'postgresql', 'mongodb', 'yaml', 'json'], 'Wo Rechte gespeichert werden. Für mehrere Server dieselbe Datenbank (MariaDB) wählen.'),
-    F('data.address', 'Datenbank-Adresse', 'text', 'Host:Port der Datenbank (nur bei MySQL/MariaDB/PostgreSQL).'),
-    F('data.database', 'Datenbank-Name', 'text', ''),
-    F('data.username', 'Datenbank-Benutzer', 'text', ''),
-    F('data.password', 'Datenbank-Passwort', 'password', ''),
-    F('sync-minutes', 'Abgleich alle (Minuten)', 'number', 'Wie oft Änderungen anderer Server übernommen werden. -1 = aus.'),
-    F('enable-ops', 'OP-Rechte erlauben', 'bool', 'Aus = /op wirkt nicht mehr, alles läuft über LuckPerms.'),
-    F('auto-op', 'Automatisch OP', 'bool', 'Spieler mit dem Recht luckperms.autoop werden OP.'),
+    F('server', 'Server name', 'text', 'Name of this server for server-specific permissions (important in a network).'),
+    F('storage-method', 'Storage method', ['h2', 'sqlite', 'mysql', 'mariadb', 'postgresql', 'mongodb', 'yaml', 'json'], 'Where permissions are stored. For several servers choose the same database (MariaDB).'),
+    F('data.address', 'Database address', 'text', 'Host:port of the database (only with MySQL/MariaDB/PostgreSQL).'),
+    F('data.database', 'Database name', 'text', ''),
+    F('data.username', 'Database user', 'text', ''),
+    F('data.password', 'Database password', 'password', ''),
+    F('sync-minutes', 'Sync every (minutes)', 'number', 'How often changes from other servers are picked up. -1 = off.'),
+    F('enable-ops', 'Allow OP permissions', 'bool', 'Off = /op no longer works, everything goes through LuckPerms.'),
+    F('auto-op', 'OP automatically', 'bool', 'Players with the permission luckperms.autoop become OP.'),
   ] },
   { id: 'worldedit', name: 'WorldEdit', folders: ['WorldEdit'], file: 'config.yml', fields: [
-    F('limits.max-blocks-changed.default', 'Blöcke je Befehl (Standard)', 'number', 'Höchstzahl veränderter Blöcke pro Befehl. -1 = unbegrenzt.'),
-    F('limits.max-blocks-changed.maximum', 'Blöcke je Befehl (Obergrenze)', 'number', 'Mehr darf niemand einstellen. -1 = unbegrenzt.'),
-    F('limits.max-radius', 'Größter Radius', 'number', 'Für Kugeln, Zylinder & Co. -1 = unbegrenzt.'),
-    F('history.size', 'Rückgängig-Schritte', 'number', 'Wie viele //undo-Schritte je Spieler gemerkt werden.'),
-    F('wand-item', 'Auswahl-Werkzeug', 'text', 'Gegenstand für //wand, z. B. minecraft:wooden_axe.'),
+    F('limits.max-blocks-changed.default', 'Blocks per command (default)', 'number', 'Maximum number of changed blocks per command. -1 = unlimited.'),
+    F('limits.max-blocks-changed.maximum', 'Blocks per command (upper limit)', 'number', 'Nobody may set more. -1 = unlimited.'),
+    F('limits.max-radius', 'Largest radius', 'number', 'For spheres, cylinders & co. -1 = unlimited.'),
+    F('history.size', 'Undo steps', 'number', 'How many //undo steps are remembered per player.'),
+    F('wand-item', 'Selection tool', 'text', 'Item for //wand, e.g. minecraft:wooden_axe.'),
   ] },
   { id: 'worldguard', name: 'WorldGuard', folders: ['WorldGuard'], file: 'config.yml', fields: [
-    F('regions.enable', 'Regionen aktiv', 'bool', 'Schutzgebiete ein- oder ausschalten.'),
-    F('regions.wand', 'Auswahl-Werkzeug', 'text', 'Gegenstand zum Anzeigen von Regionen.'),
-    F('regions.max-region-count-per-player.default', 'Regionen je Spieler', 'number', 'So viele Regionen darf ein Spieler selbst anlegen.'),
+    F('regions.enable', 'Regions active', 'bool', 'Turn protected areas on or off.'),
+    F('regions.wand', 'Selection tool', 'text', 'Item for showing regions.'),
+    F('regions.max-region-count-per-player.default', 'Regions per player', 'number', 'This many regions a player may create themselves.'),
   ] },
   { id: 'coreprotect', name: 'CoreProtect', folders: ['CoreProtect'], file: 'config.yml', fields: [
-    F('check-updates', 'Nach Updates suchen', 'bool', ''),
-    F('default-radius', 'Standard-Radius', 'number', 'Radius für Abfragen und Zurücksetzen, wenn keiner angegeben ist.'),
-    F('max-radius', 'Größter Radius', 'number', '0 = unbegrenzt.'),
-    F('rollback-items', 'Gegenstände zurücksetzen', 'bool', 'Kisteninhalte beim Zurücksetzen mit wiederherstellen.'),
-    F('rollback-entities', 'Kreaturen zurücksetzen', 'bool', 'Getötete Tiere beim Zurücksetzen wiederbeleben.'),
-    F('item-transactions', 'Kisten protokollieren', 'bool', 'Wer hat was aus Kisten genommen?'),
-    F('player-commands', 'Befehle protokollieren', 'bool', ''),
-    F('player-messages', 'Chat protokollieren', 'bool', ''),
-    F('use-mysql', 'MySQL/MariaDB nutzen', 'bool', 'Statt der eingebauten SQLite-Datei.'),
+    F('check-updates', 'Check for updates', 'bool', ''),
+    F('default-radius', 'Default radius', 'number', 'Radius for lookups and rollbacks when none is given.'),
+    F('max-radius', 'Largest radius', 'number', '0 = unlimited.'),
+    F('rollback-items', 'Roll back items', 'bool', 'Also restore chest contents when rolling back.'),
+    F('rollback-entities', 'Roll back creatures', 'bool', 'Bring killed animals back when rolling back.'),
+    F('item-transactions', 'Log chests', 'bool', 'Who took what out of chests?'),
+    F('player-commands', 'Log commands', 'bool', ''),
+    F('player-messages', 'Log chat', 'bool', ''),
+    F('use-mysql', 'Use MySQL/MariaDB', 'bool', 'Instead of the built-in SQLite file.'),
   ] },
   { id: 'griefprevention', name: 'GriefPrevention', folders: ['GriefPreventionData'], file: 'config.yml', fields: [
-    F('GriefPrevention.Claims.InitialBlocks', 'Start-Schutzblöcke', 'number', 'So viele Blöcke dürfen neue Spieler sofort schützen.'),
-    F('GriefPrevention.Claims.BlocksAccruedPerHour', 'Schutzblöcke je Stunde', 'number', 'Kommen pro Stunde Spielzeit dazu.'),
-    F('GriefPrevention.Claims.MaxAccruedBlocks', 'Schutzblöcke höchstens', 'number', 'Obergrenze für erspielte Schutzblöcke.'),
-    F('GriefPrevention.Claims.ModificationTool', 'Werkzeug zum Abstecken', 'text', 'Gegenstand zum Abstecken von Grundstücken.'),
-    F('GriefPrevention.Claims.InvestigationTool', 'Werkzeug zum Nachsehen', 'text', 'Zeigt Grundstücke an.'),
+    F('GriefPrevention.Claims.InitialBlocks', 'Starting claim blocks', 'number', 'This many blocks new players may claim right away.'),
+    F('GriefPrevention.Claims.BlocksAccruedPerHour', 'Claim blocks per hour', 'number', 'Added per hour of play time.'),
+    F('GriefPrevention.Claims.MaxAccruedBlocks', 'Claim blocks at most', 'number', 'Upper limit for earned claim blocks.'),
+    F('GriefPrevention.Claims.ModificationTool', 'Claiming tool', 'text', 'Item for claiming land.'),
+    F('GriefPrevention.Claims.InvestigationTool', 'Inspection tool', 'text', 'Shows claims.'),
   ] },
   { id: 'geyser', name: 'Geyser', folders: ['Geyser-Spigot', 'Geyser-Velocity', 'Geyser-BungeeCord'], file: 'config.yml', fields: [
-    F('bedrock.port', 'Bedrock-Port (UDP)', 'number', 'Port für Handy-, Konsolen- und Windows-Spieler (Standard 19132).'),
-    F('bedrock.motd1', 'Beschreibung Zeile 1', 'text', 'Text in der Bedrock-Serverliste.'),
-    F('bedrock.motd2', 'Beschreibung Zeile 2', 'text', ''),
-    F('remote.auth-type', 'Anmeldung', ['online', 'offline', 'floodgate'], 'floodgate = Bedrock-Spieler brauchen kein Java-Konto (Plugin Floodgate nötig).'),
-    F('passthrough-motd', 'Beschreibung vom Java-Server', 'bool', 'MOTD des Java-Servers übernehmen.'),
-    F('passthrough-player-counts', 'Spielerzahl vom Java-Server', 'bool', ''),
-    F('max-players', 'Angezeigte Höchstzahl', 'number', ''),
+    F('bedrock.port', 'Bedrock-Port (UDP)', 'number', 'Port for phone, console and Windows players (default 19132).'),
+    F('bedrock.motd1', 'Description line 1', 'text', 'Text in the Bedrock server list.'),
+    F('bedrock.motd2', 'Description line 2', 'text', ''),
+    F('remote.auth-type', 'Sign-in', ['online', 'offline', 'floodgate'], 'floodgate = Bedrock players don\'t need a Java account (needs the Floodgate plugin).'),
+    F('passthrough-motd', 'Description from the Java server', 'bool', 'Use the MOTD of the Java server.'),
+    F('passthrough-player-counts', 'Player count from the Java server', 'bool', ''),
+    F('max-players', 'Maximum shown', 'number', ''),
   ] },
   { id: 'floodgate', name: 'Floodgate', folders: ['floodgate'], file: 'config.yml', fields: [
-    F('username-prefix', 'Vorsatz für Bedrock-Namen', 'text', 'Unterscheidet Bedrock-Spieler von Java-Spielern (Standard: .).'),
-    F('replace-spaces', 'Leerzeichen ersetzen', 'bool', 'Leerzeichen in Bedrock-Namen durch _ ersetzen.'),
+    F('username-prefix', 'Prefix for Bedrock names', 'text', 'Tells Bedrock players apart from Java players (default: .).'),
+    F('replace-spaces', 'Replace spaces', 'bool', 'Replace spaces in Bedrock names with _.'),
   ] },
   { id: 'viaversion', name: 'ViaVersion', folders: ['ViaVersion'], file: 'config.yml', fields: [
-    F('checkforupdates', 'Nach Updates suchen', 'bool', ''),
-    F('suppress-conversion-warnings', 'Umwandlungs-Warnungen ausblenden', 'bool', 'Weniger Meldungen in der Konsole.'),
+    F('checkforupdates', 'Check for updates', 'bool', ''),
+    F('suppress-conversion-warnings', 'Hide conversion warnings', 'bool', 'Fewer messages in the console.'),
   ] },
   { id: 'placeholderapi', name: 'PlaceholderAPI', folders: ['PlaceholderAPI'], file: 'config.yml', fields: [
-    F('check_updates', 'Nach Updates suchen', 'bool', ''),
-    F('cloud_enabled', 'Erweiterungen aus der Cloud', 'bool', 'Erlaubt /papi ecloud download.'),
-    F('boolean.true', 'Text für „ja“', 'text', ''),
-    F('boolean.false', 'Text für „nein“', 'text', ''),
+    F('check_updates', 'Check for updates', 'bool', ''),
+    F('cloud_enabled', 'Expansions from the cloud', 'bool', 'Allows /papi ecloud download.'),
+    F('boolean.true', 'Text for “yes”', 'text', ''),
+    F('boolean.false', 'Text for “no”', 'text', ''),
     F('date_format', 'Datumsformat', 'text', 'z. B. dd.MM.yyyy HH:mm'),
   ] },
   { id: 'chunky', name: 'Chunky', folders: ['Chunky'], file: 'config.yml', fields: [
-    F('continue-on-restart', 'Nach Neustart weitermachen', 'bool', 'Angefangene Vorgenerierung nach einem Neustart fortsetzen.'),
-    F('silent', 'Leise', 'bool', 'Keine Fortschrittsmeldungen in der Konsole.'),
-    F('update-interval', 'Meldung alle (s)', 'number', ''),
+    F('continue-on-restart', 'Continue after a restart', 'bool', 'Continue a started pre-generation after a restart.'),
+    F('silent', 'Leise', 'bool', 'No progress messages in the console.'),
+    F('update-interval', 'Message every (s)', 'number', ''),
   ] },
   { id: 'discordsrv', name: 'DiscordSRV', folders: ['DiscordSRV'], file: 'config.yml', fields: [
-    F('BotToken', 'Bot-Token', 'password', 'Token deines Discord-Bots (Discord Developer Portal).'),
-    F('DiscordConsoleChannelId', 'Konsolen-Kanal (ID)', 'text', 'Die Serverkonsole erscheint in diesem Kanal. Leer = aus.'),
-    F('DiscordChatChannelMinecraftToDiscord', 'Chat nach Discord', 'bool', ''),
-    F('DiscordChatChannelDiscordToMinecraft', 'Chat von Discord', 'bool', ''),
-    F('ServerWatchdogEnabled', 'Hänger melden', 'bool', 'Meldet in Discord, wenn der Server nicht mehr antwortet.'),
+    F('BotToken', 'Bot-Token', 'password', 'Token of your Discord bot (Discord Developer Portal).'),
+    F('DiscordConsoleChannelId', 'Console channel (ID)', 'text', 'The server console appears in this channel. Empty = off.'),
+    F('DiscordChatChannelMinecraftToDiscord', 'Chat to Discord', 'bool', ''),
+    F('DiscordChatChannelDiscordToMinecraft', 'Chat from Discord', 'bool', ''),
+    F('ServerWatchdogEnabled', 'Report hangs', 'bool', 'Reports in Discord when the server stops answering.'),
   ] },
   { id: 'authme', name: 'AuthMe', folders: ['AuthMe'], file: 'config.yml', fields: [
-    F('settings.security.minPasswordLength', 'Passwort mindestens (Zeichen)', 'number', ''),
-    F('settings.security.passwordHash', 'Passwort-Verfahren', ['BCRYPT', 'ARGON2', 'SHA256', 'PBKDF2'], 'BCRYPT oder ARGON2 sind sicher.'),
-    F('settings.restrictions.timeout', 'Zeit zum Anmelden (s)', 'number', 'Danach wird der Spieler gekickt.'),
-    F('settings.sessions.enabled', 'Sitzungen merken', 'bool', 'Gleiche IP muss sich nach kurzer Pause nicht neu anmelden.'),
-    F('settings.sessions.timeout', 'Sitzung gültig (Minuten)', 'number', ''),
-    F('settings.registration.force', 'Registrierung erzwingen', 'bool', 'Neue Spieler müssen sich registrieren, bevor sie spielen.'),
+    F('settings.security.minPasswordLength', 'Password at least (characters)', 'number', ''),
+    F('settings.security.passwordHash', 'Password hashing', ['BCRYPT', 'ARGON2', 'SHA256', 'PBKDF2'], 'BCRYPT or ARGON2 are secure.'),
+    F('settings.restrictions.timeout', 'Time to sign in (s)', 'number', 'After that the player is kicked.'),
+    F('settings.sessions.enabled', 'Remember sessions', 'bool', 'The same IP doesn\'t have to sign in again after a short break.'),
+    F('settings.sessions.timeout', 'Session valid (minutes)', 'number', ''),
+    F('settings.registration.force', 'Force registration', 'bool', 'New players have to register before they play.'),
   ] },
   { id: 'tab', name: 'TAB', folders: ['TAB'], file: 'config.yml', fields: [
-    F('header-footer.enabled', 'Kopf- und Fußzeile', 'bool', 'Text über und unter der Spielerliste.'),
-    F('tablist-name-formatting.enabled', 'Namen gestalten', 'bool', 'Präfixe und Farben in der Spielerliste.'),
-    F('scoreboard-teams.enabled', 'Namensschilder gestalten', 'bool', 'Präfixe über den Köpfen.'),
-    F('belowname-objective.enabled', 'Wert unter dem Namen', 'bool', 'z. B. Lebenspunkte unter dem Namen.'),
-    F('permission-refresh-interval', 'Rechte neu lesen alle (ms)', 'number', ''),
+    F('header-footer.enabled', 'Header and footer', 'bool', 'Text above and below the player list.'),
+    F('tablist-name-formatting.enabled', 'Style names', 'bool', 'Prefixes and colours in the player list.'),
+    F('scoreboard-teams.enabled', 'Style name tags', 'bool', 'Prefixes above the heads.'),
+    F('belowname-objective.enabled', 'Value below the name', 'bool', 'e.g. health below the name.'),
+    F('permission-refresh-interval', 'Reread permissions every (ms)', 'number', ''),
   ] },
   { id: 'multiverse', name: 'Multiverse-Core', folders: ['Multiverse-Core'], file: 'config.yml', fields: [
-    F('multiverse-configuration.enforceaccess', 'Zugang erzwingen', 'bool', 'Spieler brauchen das Recht für eine Welt, um sie zu betreten.'),
-    F('multiverse-configuration.firstspawnoverride', 'Erster Spawn in Spawn-Welt', 'bool', 'Neue Spieler starten in der eingestellten Spawn-Welt.'),
+    F('multiverse-configuration.enforceaccess', 'Enforce access', 'bool', 'Players need the permission for a world to enter it.'),
+    F('multiverse-configuration.firstspawnoverride', 'First spawn in the spawn world', 'bool', 'New players start in the configured spawn world.'),
     F('multiverse-configuration.teleportintercept', 'Teleports abfangen', 'bool', ''),
-    F('world.enforce-access', 'Zugang erzwingen', 'bool', 'Spieler brauchen das Recht für eine Welt, um sie zu betreten.'),
-    F('spawn.first-spawn-override', 'Erster Spawn in Spawn-Welt', 'bool', ''),
+    F('world.enforce-access', 'Enforce access', 'bool', 'Players need the permission for a world to enter it.'),
+    F('spawn.first-spawn-override', 'First spawn in the spawn world', 'bool', ''),
   ] },
   { id: 'dynmap', name: 'Dynmap', folders: ['dynmap'], file: 'configuration.txt', fields: [
-    F('webserver-port', 'Port der Karte', 'number', 'Die Karte ist unter http://localhost:<Port>/ erreichbar.'),
-    F('webserver-bindaddress', 'Adresse', 'text', '0.0.0.0 = aus dem Netzwerk erreichbar, 127.0.0.1 = nur dieser PC.'),
-    F('login-enabled', 'Anmeldung auf der Karte', 'bool', ''),
+    F('webserver-port', 'Port of the map', 'number', 'The map is reachable at http://localhost:<port>/.'),
+    F('webserver-bindaddress', 'Address', 'text', '0.0.0.0 = reachable from the network, 127.0.0.1 = only this PC.'),
+    F('login-enabled', 'Sign-in on the map', 'bool', ''),
   ] },
   { id: 'protocollib', name: 'ProtocolLib', folders: ['ProtocolLib'], file: 'config.yml', fields: [
-    F('global.auto updater.notify', 'Über Updates informieren', 'bool', ''),
-    F('global.auto updater.download', 'Updates herunterladen', 'bool', ''),
-    F('global.metrics', 'Statistik senden', 'bool', 'Anonyme Nutzungsdaten an bStats.'),
+    F('global.auto updater.notify', 'Notify about updates', 'bool', ''),
+    F('global.auto updater.download', 'Download updates', 'bool', ''),
+    F('global.metrics', 'Send statistics', 'bool', 'Anonymous usage data to bStats.'),
   ] },
   { id: 'mcmmo', name: 'mcMMO', folders: ['mcMMO'], file: 'config.yml', fields: [
-    F('General.Locale', 'Sprache', 'text', 'z. B. de_DE oder en_US.'),
-    F('General.Save_Interval', 'Speichern alle (Minuten)', 'number', ''),
-    F('General.Power_Level_Cap', 'Gesamt-Stufe höchstens', 'number', '0 = unbegrenzt.'),
+    F('General.Locale', 'Language', 'text', 'e.g. de_DE or en_US.'),
+    F('General.Save_Interval', 'Save every (minutes)', 'number', ''),
+    F('General.Power_Level_Cap', 'Total level at most', 'number', '0 = unlimited.'),
   ] },
   { id: 'votifier', name: 'NuVotifier', folders: ['Votifier', 'NuVotifier'], file: 'config.yml', fields: [
-    F('host', 'Adresse', 'text', 'Meist 0.0.0.0.'),
-    F('port', 'Port', 'number', 'Diesen Port bei den Server-Listen angeben (Standard 8192).'),
-    F('debug', 'Fehlersuche', 'bool', 'Mehr Meldungen in der Konsole.'),
+    F('host', 'Address', 'text', 'Usually 0.0.0.0.'),
+    F('port', 'Port', 'number', 'Give this port to the server lists (default 8192).'),
+    F('debug', 'Debugging', 'bool', 'More messages in the console.'),
   ] },
   { id: 'clearlag', name: 'ClearLag', folders: ['ClearLag'], file: 'config.yml', fields: [
-    F('auto-removal.enabled', 'Automatisch aufräumen', 'bool', 'Herumliegende Gegenstände regelmäßig entfernen.'),
-    F('auto-removal.autoremoval-interval', 'Aufräumen alle (s)', 'number', ''),
+    F('auto-removal.enabled', 'Clean up automatically', 'bool', 'Regularly remove items lying around.'),
+    F('auto-removal.autoremoval-interval', 'Clean up every (s)', 'number', ''),
   ] },
   { id: 'plan', name: 'Plan', folders: ['Plan'], file: 'config.yml', fields: [
-    F('Webserver.Port', 'Port der Webseite', 'number', 'Statistik-Seite unter http://localhost:<Port>/.'),
+    F('Webserver.Port', 'Port of the website', 'number', 'Statistics page at http://localhost:<port>/.'),
   ] },
   { id: 'squaremap', name: 'squaremap', folders: ['squaremap'], file: 'config.yml', fields: [
-    F('settings.internal-webserver.enabled', 'Eigene Webseite', 'bool', ''),
-    F('settings.internal-webserver.bind', 'Adresse', 'text', ''),
-    F('settings.internal-webserver.port', 'Port der Karte', 'number', ''),
+    F('settings.internal-webserver.enabled', 'Own website', 'bool', ''),
+    F('settings.internal-webserver.bind', 'Address', 'text', ''),
+    F('settings.internal-webserver.port', 'Port of the map', 'number', ''),
   ] },
 ];
 
@@ -174,7 +175,7 @@ function listForms(pluginsDir) {
     const file = locate(pluginsDir, form);
     if (!file) continue;
     let doc;
-    try { doc = YAML.parseDocument(fs.readFileSync(file, 'utf8')); } catch (e) { out.push({ id: form.id, name: form.name, file: path.relative(pluginsDir, file), error: `Datei nicht lesbar: ${e.message}`, fields: [] }); continue; }
+    try { doc = YAML.parseDocument(fs.readFileSync(file, 'utf8')); } catch (e) { out.push({ id: form.id, name: form.name, file: path.relative(pluginsDir, file), error: T('File not readable: {message}', { message: e.message }), fields: [] }); continue; }
     const fields = form.fields.filter((x) => doc.hasIn(pathOf(x.key))).map((x) => {
       const v = doc.getIn(pathOf(x.key));
       return { ...x, value: x.type === 'password' ? '' : v, hasValue: x.type === 'password' ? !!v : undefined };
@@ -187,9 +188,9 @@ function listForms(pluginsDir) {
 /** Werte speichern – nur Felder des Formulars, die es in der Datei schon gibt; Kommentare bleiben erhalten. */
 function saveForm(pluginsDir, id, values) {
   const form = FORMS.find((x) => x.id === id);
-  if (!form) throw Object.assign(new Error('Unbekanntes Formular'), { status: 404 });
+  if (!form) throw Object.assign(new Error(T('Unknown form')), { status: 404 });
   const file = locate(pluginsDir, form);
-  if (!file) throw Object.assign(new Error('Die Einstellungsdatei gibt es nicht (mehr).'), { status: 404 });
+  if (!file) throw Object.assign(new Error(T('The settings file does not exist (anymore).')), { status: 404 });
   const doc = YAML.parseDocument(fs.readFileSync(file, 'utf8'));
   let changed = 0;
   for (const f of form.fields) {
@@ -197,8 +198,8 @@ function saveForm(pluginsDir, id, values) {
     let v = values[f.key];
     if (f.type === 'password' && (v === '' || v == null)) continue; // leer = unverändert
     if (f.type === 'bool') v = v === true || v === 'true';
-    else if (f.type === 'number') { v = Number(v); if (!Number.isFinite(v)) throw new Error(`„${f.label}“ muss eine Zahl sein.`); }
-    else if (Array.isArray(f.type)) { if (!f.type.includes(String(v))) throw new Error(`Ungültiger Wert für „${f.label}“.`); v = String(v); }
+    else if (f.type === 'number') { v = Number(v); if (!Number.isFinite(v)) throw new Error(T('“{label}” must be a number.', { label: f.label })); }
+    else if (Array.isArray(f.type)) { if (!f.type.includes(String(v))) throw new Error(T('Invalid value for “{label}”.', { label: f.label })); v = String(v); }
     else v = String(v);
     if (doc.getIn(pathOf(f.key)) === v) continue;
     doc.setIn(pathOf(f.key), v);

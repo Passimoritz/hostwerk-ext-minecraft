@@ -23,14 +23,15 @@ function detect(url) {
   if (m) return { source: 'spigot', id: m[1], label: `SpigotMC #${m[1]}` };
   m = u.match(/^(https?:\/\/[^\s]+?\/job\/[^/\s]+)\/?/i);
   if (m) return { source: 'jenkins', id: m[1].replace(/\/$/, ''), label: 'Jenkins' };
-  if (/^https?:\/\/\S+\.jar(\?\S*)?$/i.test(u)) return { source: 'url', id: u, label: 'Direkter Download' };
+  if (/^https?:\/\/\S+\.jar(\?\S*)?$/i.test(u)) return { source: 'url', id: u, label: T('Direct download') };
   if (/^\d+$/.test(u)) return { source: 'spigot', id: u, label: `SpigotMC #${u}` };
   return null;
 }
 
-const LABEL = { modrinth: 'Modrinth', hangar: 'Hangar', github: 'GitHub', spigot: 'SpigotMC', jenkins: 'Jenkins', url: 'Link', project: 'Eigenes Projekt', hostwerk: 'Von Hostwerk' };
+const LABEL = { modrinth: 'Modrinth', hangar: 'Hangar', github: 'GitHub', spigot: 'SpigotMC', jenkins: 'Jenkins', url: 'Link', project: 'Own project', hostwerk: 'From Hostwerk' };
 const crypto = require('crypto');
 const { buildJar } = require('./pluginprojects');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 const BRIDGE_JAR = path.join(__dirname, 'bridge', 'HostwerkBridge.jar');
 const sha1 = (f) => { try { return crypto.createHash('sha1').update(fs.readFileSync(f)).digest('hex'); } catch { return null; } };
 /** Zwei JARs gleich? Größe zuerst (billig), dann Inhalt. */
@@ -122,9 +123,9 @@ class PluginSources {
 
   link(id, file, url, { auto = false } = {}) {
     const d = detect(url);
-    if (!d) throw new Error('Diese Adresse erkenne ich nicht. Unterstützt: GitHub-Repository, SpigotMC-Ressource, Jenkins-Job (…/job/NAME) oder ein direkter Link auf eine .jar.');
+    if (!d) throw new Error(T('I don\'t recognize this address. Supported: GitHub repository, SpigotMC resource, Jenkins job (…/job/NAME) or a direct link to a .jar.'));
     const base = String(file || '').replace(/\.disabled$/i, '');
-    if (!/^[\w.+ -]+\.jar$/i.test(base)) throw new Error('Ungültiger Dateiname');
+    if (!/^[\w.+ -]+\.jar$/i.test(base)) throw new Error(T('Invalid file name'));
     const src = this.market().sources(id);
     const prev = src[base] || {};
     const { unlinkedAt, paused, ...keep } = prev; // eslint-disable-line no-unused-vars
@@ -149,7 +150,7 @@ class PluginSources {
   resume(id, file) {
     const base = String(file || '').replace(/\.disabled$/i, '');
     const src = this.market().sources(id);
-    if (!this.isExternal(src[base])) throw new Error('Für dieses Plugin ist keine Quelle gespeichert.');
+    if (!this.isExternal(src[base])) throw new Error(T('No source is saved for this plugin.'));
     const { paused, unlinkedAt, ...keep } = src[base]; // eslint-disable-line no-unused-vars
     src[base] = { ...keep, linkedAt: Date.now() };
     this.market().saveSources(id, src);
@@ -161,8 +162,8 @@ class PluginSources {
     const src = this.market().sources(id);
     const out = {};
     for (const [base, x] of Object.entries(src)) {
-      if (!x || x.source === 'none') out[base] = { source: 'manual', label: 'Von Hand (entkoppelt)', page: null };
-      else out[base] = { source: x.source, label: (LABEL[x.source] || x.source) + (x.paused ? ' (entkoppelt)' : ''), page: pageUrl(x), auto: !!x.auto, paused: !!x.paused };
+      if (!x || x.source === 'none') out[base] = { source: 'manual', label: T('Manual (unlinked)'), page: null };
+      else out[base] = { source: x.source, label: T(LABEL[x.source] || x.source) + (x.paused ? ` (${T('unlinked')})` : ''), page: pageUrl(x), auto: !!x.auto, paused: !!x.paused };
     }
     return out;
   }
@@ -171,7 +172,7 @@ class PluginSources {
   async latest(x, hint = '') {
     if (x.source === 'project') {
       const j = buildJar(x.id);
-      if (!j) throw new Error('Noch nicht gebaut (keine JAR in target/ oder build/libs/)');
+      if (!j) throw new Error(T('Not built yet (no JAR in target/ or build/libs/)'));
       const meta = await this.mc.readMeta(j.file).catch(() => null);
       return { version: (meta && meta.version) || null, localFile: j.file, filename: path.basename(j.file), date: new Date(j.t).toISOString(), external: false, built: j.t };
     }
@@ -202,7 +203,7 @@ class PluginSources {
     }
     // Direkter Link: Änderung an ETag/Last-Modified erkennen
     const r = await fetch(x.id, { method: 'HEAD', headers: UA, redirect: 'follow', signal: AbortSignal.timeout(15000) });
-    if (!r.ok) throw new Error(`Adresse antwortet mit ${r.status}`);
+    if (!r.ok) throw new Error(T('Address responds with {status}', { status: r.status }));
     const tag = r.headers.get('etag') || r.headers.get('last-modified') || String(r.headers.get('content-length') || '');
     return { version: tag.replace(/"/g, '').slice(0, 40), url: x.id, filename: path.basename(new URL(x.id).pathname), external: false };
   }
@@ -222,7 +223,7 @@ class PluginSources {
           const inst = [path.join(dir, file), path.join(dir, file + '.disabled')].find((f) => fs.existsSync(f));
           // Neuer Build = andere Datei als die installierte (auch bei gleicher Versionsnummer); beim Projekt nur, wenn neuer
           update = !!inst && !sameJar(inst, l.localFile) && (x.source === 'hostwerk' || (l.built || 0) > fs.statSync(inst).mtimeMs);
-          if (!l.version) l.version = update ? 'neuer Build' : x.version;
+          if (!l.version) l.version = update ? T('new build') : x.version;
         }
         const r = { file, name: x.title || l.title || file, current: x.version || null, latest: l.version, update, source: x.source, external: !!l.external, page: l.page || null, at: Date.now() };
         st[file] = r; out.push(r);
@@ -236,22 +237,22 @@ class PluginSources {
   /** Neue Version herunterladen und einspielen (Datei gleichen Namens ersetzen). */
   update(id, file) {
     const base = String(file).replace(/\.disabled$/i, '');
-    return runJob(`Plugin aktualisieren: ${base}`, async (job) => {
+    return runJob(T('Update plugin: {base}', { base }), async (job) => {
       const src = this.market().sources(id);
       const x = src[base];
-      if (!x || !this.isExternal(x)) throw new Error('Dieses Plugin ist mit keiner Quelle verknüpft.');
-      if (x.paused) throw new Error('Die Quelle ist entkoppelt – erst wieder verknüpfen.');
+      if (!x || !this.isExternal(x)) throw new Error(T('This plugin isn\'t linked to a source.'));
+      if (x.paused) throw new Error(T('The source is unlinked – link it again first.'));
       const l = await this.latest(x, base);
-      if (!l.url && !l.localFile) throw new Error(`Diese Version muss auf der Seite des Herstellers geladen werden: ${l.page || x.url || x.id}`);
+      if (!l.url && !l.localFile) throw new Error(T('This version has to be downloaded on the vendor\'s page: {v1}', { v1: l.page || x.url || x.id }));
       const dir = this.mc.addonDir(id);
       const disabled = fs.existsSync(path.join(dir, base + '.disabled')) && !fs.existsSync(path.join(dir, base));
       job.log(`${x.title || base}: ${x.version || '?'} → ${l.version} (${x.source})`);
       const tmp = path.join(require('os').tmpdir(), `hw-plugin-${process.pid}-${Date.now()}.jar`);
       if (l.localFile) fs.copyFileSync(l.localFile, tmp);
-      else await downloadFile(l.url, tmp, { onProgress: (r, t) => job.progress(t ? (r / t) * 100 : 50, `${base} herunterladen`) });
+      else await downloadFile(l.url, tmp, { onProgress: (r, t) => job.progress(t ? (r / t) * 100 : 50, T('Download {base}', { base })) });
       // Gleicher Dateiname: Server aus → ersetzen, Server an → live austauschen oder einreihen (kein EPERM mehr)
       const r = await this.mc.placeAddon(id, tmp, { finalName: base, replace: base, disabled });
-      job.log(r.mode === 'queued' ? 'Wartet – wird beim nächsten Stopp oder Neustart eingespielt.' : r.mode === 'hot' ? 'Live ausgetauscht – ohne Neustart.' : 'Ersetzt.');
+      job.log(r.mode === 'queued' ? T('Waiting – will be applied at the next stop or restart.') : r.mode === 'hot' ? T('Swapped live – no restart.') : T('Replaced.'));
       src[base] = { ...x, version: l.version, updatedAt: Date.now(), pending: r.mode === 'queued' ? l.version : undefined };
       this.market().saveSources(id, src);
       const st = this.state.get(id); if (st && st[base]) st[base] = { ...st[base], current: l.version, update: false };
@@ -266,7 +267,7 @@ class PluginSources {
     r.post('/mc/servers/:id/plugins/source/open', async (req, res) => {
       const base = String((req.body || {}).file || '').replace(/\.disabled$/i, '');
       const x = this.market().sources(req.params.id)[base];
-      if (!x || x.source !== 'project' || !fs.existsSync(x.id)) return res.status(404).json({ error: 'Kein Projektordner gespeichert.' });
+      if (!x || x.source !== 'project' || !fs.existsSync(x.id)) return res.status(404).json({ error: T('No project folder saved.') });
       const { exec } = require('./hw').core('util');
       if (!process.env.HW_TEST) exec(process.platform === 'win32' ? 'explorer.exe' : 'xdg-open', [x.id]).catch(() => {});
       res.json({ ok: true, dir: x.id });

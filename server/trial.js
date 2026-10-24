@@ -11,6 +11,7 @@ const { spawn } = require('child_process');
 const { findFreePort } = require('./hw').core('ports');
 const { providers, javaFor } = require('./providers');
 const { killTree } = require('./hw').core('proc');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 
 const SKIP = new Set(['backups', 'logs', 'cache', 'crash-reports', 'session.lock', 'server.jar.alt', '.hostwerk-neu']);
 
@@ -44,7 +45,7 @@ async function trialRun(dir, s, ctx, job, { copy = true, timeoutMs = 4 * 60000, 
   if (copy) {
     const bytes = dirBytes(dir);
     const skipWorlds = !keepWorlds || bytes > 6 * 1024 ** 3;
-    log(`Kopie anlegen (${(bytes / 1048576).toFixed(0)} MB${skipWorlds ? ', Welten ausgelassen – zu groß, Probe mit frischer Welt' : ''}) …`);
+    log(skipWorlds ? T('Creating copy ({mb} MB, worlds left out – too big, trial with a fresh world) …', { mb: (bytes / 1048576).toFixed(0) }) : T('Creating copy ({mb} MB) …', { mb: (bytes / 1048576).toFixed(0) }));
     copyDir(dir, work, { skipWorlds });
   }
   try {
@@ -64,8 +65,8 @@ async function trialRun(dir, s, ctx, job, { copy = true, timeoutMs = 4 * 60000, 
     const argsFile = s.launch && s.launch.argsFile ? s.launch.argsFile : null;
     const args = [`-Xmx${Math.max(1024, Math.min(s.memMax || 2048, 4096))}M`, ...(s.extraArgs ? String(s.extraArgs).split(/\s+/).filter(Boolean) : [])];
     if (argsFile) args.push('@' + argsFile, 'nogui'); else args.push('-jar', jar, 'nogui');
-    if (!argsFile && !fs.existsSync(jar)) throw new Error('Server-JAR fehlt in der Kopie: ' + jar);
-    log(`Probelauf auf Port ${port} (Java ${major}) …`);
+    if (!argsFile && !fs.existsSync(jar)) throw new Error(T('Server JAR missing in the copy: {file}', { file: jar }));
+    log(T('Trial run on port {port} (Java {major}) …', { port, major }));
     const t0 = Date.now();
     const lines = [];
     const errors = [];

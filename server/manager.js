@@ -20,6 +20,7 @@ const { isPortFree, findFreePort, whoUsesPort } = require('./hw').core('ports');
 const { zipDir, unzipTo, slug, dirSize } = require('./hw').core('util');
 const { fetchJson, downloadFile, fmtBytes, APP_UA } = require('./hw').core('download');
 const { broadcast } = require('./hw').core('events');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 
 const AIKAR = [
   '-XX:+UseG1GC', '-XX:+ParallelRefProcEnabled', '-XX:MaxGCPauseMillis=200', '-XX:+UnlockExperimentalVMOptions',
@@ -199,7 +200,7 @@ class MinecraftManager {
   list() { return this.settings.get().minecraft.servers; }
   get(id) {
     const s = this.list().find((x) => x.id === id);
-    if (!s) throw Object.assign(new Error('Server nicht gefunden'), { status: 404 });
+    if (!s) throw Object.assign(new Error(T('Server not found')), { status: 404 });
     return s;
   }
   /** Serverordner – bei übernommenen Servern („am bisherigen Ort“) der ursprüngliche Ordner. */
@@ -274,10 +275,10 @@ class MinecraftManager {
   /* ---------- Anlegen ---------- */
   async create(body) {
     const type = body.type;
-    if (!providers[type]) throw new Error('Unbekannter Servertyp');
+    if (!providers[type]) throw new Error(T('Unknown server type'));
     if (providers[type].edition === 'bedrock') return this.bedrock.create(body);
     // Ein Proxy (Velocity) ist kein Minecraft-Server von Mojang – keine EULA nötig
-    if (!body.eula && !providers[type].proxy) throw new Error('Die Minecraft-EULA muss akzeptiert werden.');
+    if (!body.eula && !providers[type].proxy) throw new Error(T('The Minecraft EULA must be accepted.'));
     const name = String(body.name || '').trim() || 'Minecraft-Server';
     let id = slug(name);
     // Fortsetzung nach Absturz/Beenden: derselbe Ordner (halb geladene server.jar.part lädt dort weiter)
@@ -289,7 +290,7 @@ class MinecraftManager {
     // Modpack: Minecraft-Version und Loader stehen im Pack
     let pack = null;
     if (type === 'modpack') {
-      if (!body.modpack || !body.modpack.projectId) throw new Error('Bitte ein Modpack auswählen.');
+      if (!body.modpack || !body.modpack.projectId) throw new Error(T('Please choose a modpack.'));
       // CurseForge: Minecraft-Version aus der gewählten Datei (für die passende Java-Version vorab)
       if (body.modpack.source === 'curseforge') { pack = await this.curseforge.packInfo(body.modpack.projectId, body.modpack.fileId); body.modpack.fileId = pack.id; }
       else pack = await modpackVersion(body.modpack.projectId, body.modpack.versionId);
@@ -305,11 +306,11 @@ class MinecraftManager {
       // Sicherheitsnetz ab Werk: jede Nacht sichern, 7 Stände (beim Anlegen abwählbar, services/nightlybackup.js)
       nightlyBackup: { enabled: body.nightlyBackup !== false, everyHours: 24, keep: 7, hour: 3, since: Date.now() },
     };
-    return runJob(`Minecraft-Server „${name}“ anlegen`, async (job) => {
+    return runJob(T('Create Minecraft server “{name}”', { name }), async (job) => {
       const dir = this.dir(id);
       fs.mkdirSync(dir, { recursive: true });
       try {
-        job.progress(2, `Java ${javaMajor} prüfen …`);
+        job.progress(2, T('Checking Java {javaMajor} …', { javaMajor }));
         const javaExe = await this.ctx.services.java.ensure(javaMajor, job, [2, 35]);
         const dest = path.join(dir, 'server.jar');
         if (type === 'custom') {
@@ -328,12 +329,12 @@ class MinecraftManager {
           if (r.launch) server.launch = r.launch;
           if (r.jar) server.jar = r.jar;
         }
-        if (!providers[type].proxy) fs.writeFileSync(path.join(dir, 'eula.txt'), `# Akzeptiert über Hostwerk am ${new Date().toISOString()}\n# https://aka.ms/MinecraftEULA\neula=true\n`);
+        if (!providers[type].proxy) fs.writeFileSync(path.join(dir, 'eula.txt'), `# Accepted through Hostwerk on ${new Date().toISOString()}\n# https://aka.ms/MinecraftEULA\neula=true\n`);
         if (!providers[type].proxy) fs.writeFileSync(path.join(dir, 'server.properties'), writeProps('#Minecraft server properties\n', {
           'server-port': port,
           'query.port': port,
           // Standard-Beschreibung in der Sprache von Hostwerk (danach gehört sie dem Nutzer und wird nicht mehr übersetzt)
-          motd: body.motd || `${name} §7– ${this.settings.get().general.language === 'en' ? 'hosted with Hostwerk' : 'gehostet mit Hostwerk'}`,
+          motd: body.motd || `${name} §7– ${T('hosted with Hostwerk')}`,
           'max-players': body.maxPlayers || 20,
           gamemode: body.gamemode || 'survival',
           difficulty: body.difficulty || 'normal',
@@ -344,7 +345,7 @@ class MinecraftManager {
         list.push(server);
         this.settings.save();
         this.proc(id);
-        job.progress(100, 'Fertig');
+        job.progress(100, T('Done'));
         return { id };
       } catch (e) {
         fs.rmSync(dir, { recursive: true, force: true });
@@ -355,7 +356,7 @@ class MinecraftManager {
 
   /* ---------- Uploads (eigene JAR) ---------- */
   takeUpload(uploadId) {
-    if (!/^[a-f0-9-]{36}$/.test(uploadId || '')) throw new Error('Keine JAR-Datei hochgeladen.');
+    if (!/^[a-f0-9-]{36}$/.test(uploadId || '')) throw new Error(T('No JAR file uploaded.'));
     const meta = path.join(this.paths.cache, 'uploads', uploadId + '.json');
     const m = JSON.parse(fs.readFileSync(meta, 'utf8'));
     fs.rmSync(meta, { force: true });
@@ -367,13 +368,13 @@ class MinecraftManager {
     const s = this.get(id);
     // Bedrock: Update mit Rücksprung (stoppt und startet selbst, Welten wandern mit)
     if (this.isBedrock(s)) return this.bedrock.update(id, { version: version || null, force: true });
-    if (this.proc(id).isRunning()) throw Object.assign(new Error('Bitte den Server zuerst stoppen.'), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'stop' } });
+    if (this.proc(id).isRunning()) throw Object.assign(new Error(T('Please stop the server first.')), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'stop' } });
     const t = type || s.type;
-    if (!providers[t]) throw new Error('Unbekannter Servertyp');
-    if (providers[t].edition === 'bedrock') throw new Error('Ein Java-Server lässt sich nicht auf Bedrock umstellen (andere Welt-Formate) – lege dafür einen neuen Bedrock-Server an.');
-    return runJob(`„${s.name}“ auf ${providers[t].label} ${version || ''} umstellen`, async (job) => {
+    if (!providers[t]) throw new Error(T('Unknown server type'));
+    if (providers[t].edition === 'bedrock') throw new Error(T('A Java server cannot be switched to Bedrock (different world formats) – create a new Bedrock server instead.'));
+    return runJob(T('Switch “{name}” to {label} {v3}', { name: s.name, label: providers[t].label, v3: version || '' }), async (job) => {
       // Zeitmaschine mit Daten: Setup + Welt sichern, damit die Zeitreise den Wechsel vollständig rückgängig machen kann
-      if (this.ctx.timeMachine && !process.env.HW_TEST_NO_TM) await this.ctx.timeMachine.withData(`Minecraft: ${s.name} – vor Versionswechsel auf ${providers[t].label} ${version || ''}`.trim(), { mc: [id] }, job);
+      if (this.ctx.timeMachine && !process.env.HW_TEST_NO_TM) await this.ctx.timeMachine.withData(T('Minecraft: {name} – before switching to {label} {version}', { name: s.name, label: providers[t].label, version: version || '' }).trim(), { mc: [id] }, job);
       const dir = this.dir(id);
       const javaMajor = t === 'custom' ? s.javaMajor : await javaFor(version, t);
       const javaExe = await this.ctx.services.java.ensure(javaMajor, job, [2, 35]);
@@ -401,7 +402,7 @@ class MinecraftManager {
       Object.assign(s, { type: t, version: ver, build, javaMajor, jar: 'server.jar' });
       delete s.launch;
       this.settings.save();
-      job.log('Alte JAR gesichert als server.jar.alt');
+      job.log(T('Old JAR saved as server.jar.alt'));
       return { id };
     });
   }
@@ -416,12 +417,12 @@ class MinecraftManager {
 
   updateModpack(id, { versionId }) {
     const s = this.get(id);
-    if (!s.modpack) throw new Error('Dieser Server wurde nicht aus einem Modpack erstellt.');
-    if (!versionId) throw new Error('Keine Version gewählt.');
-    return runJob(`Modpack „${s.name}“ aktualisieren`, async (job) => {
+    if (!s.modpack) throw new Error(T('This server wasn\'t created from a modpack.'));
+    if (!versionId) throw new Error(T('No version chosen.'));
+    return runJob(T('Update modpack “{name}”', { name: s.name }), async (job) => {
       const wasRunning = this.proc(id).isRunning();
-      if (wasRunning) { job.progress(2, 'Server stoppen …'); await this.stop(id); }
-      job.progress(4, 'Sicherung anlegen …');
+      if (wasRunning) { job.progress(2, T('Stopping server …')); await this.stop(id); }
+      job.progress(4, T('Creating backup …'));
       await this.backup(id, 'vor-modpack-update').promise;
       const javaMajor = await javaFor(s.version);
       const javaExe = await this.ctx.services.java.ensure(javaMajor, job, [5, 7]);
@@ -432,8 +433,8 @@ class MinecraftManager {
       }
       s.modpack = r.modpack;
       this.settings.save();
-      job.log(`Modpack auf ${r.modpack.version} aktualisiert. Eine Sicherung des alten Stands liegt unter „Sicherungen“.`);
-      if (wasRunning) { job.progress(98, 'Server starten …'); await this.start(id); }
+      job.log(T('Modpack updated to {version}. A backup of the old state is under “Backups”.', { version: r.modpack.version }));
+      if (wasRunning) { job.progress(98, T('Starting server …')); await this.start(id); }
       return { id, version: r.modpack.version };
     });
   }
@@ -448,13 +449,13 @@ class MinecraftManager {
     const jar = path.join(dir, s.jar || 'server.jar');
     // Forge/NeoForge: Start über das Argumente-File des Installers statt über eine JAR
     const argsFile = s.launch && s.launch.argsFile ? path.join(dir, s.launch.argsFile) : null;
-    if (argsFile ? !fs.existsSync(argsFile) : !fs.existsSync(jar)) throw new Error('Server-JAR fehlt: ' + (argsFile || jar));
+    if (argsFile ? !fs.existsSync(argsFile) : !fs.existsSync(jar)) throw new Error(T('Server JAR missing: {file}', { file: argsFile || jar }));
     if (!(await isPortFree(s.port))) {
       const who = await whoUsesPort(s.port);
-      throw new Error(`Port ${s.port} ist belegt${who ? ` von ${who.name} (PID ${who.pid})` : ''}.`);
+      throw new Error(who ? T('Port {port} is in use by {name} (PID {pid}).', { port: s.port, name: who.name, pid: who.pid }) : T('Port {port} is in use.', { port: s.port }));
     }
     // Wartende Geyser-Updates einspielen (nur bei gestopptem Server möglich)
-    try { if (this.geyser) this.geyser.applyStaged(id, (msg) => p.log(msg, 'sys')); } catch (e) { p.log(`Geyser-Update nicht eingespielt: ${e.message}`, 'sys'); }
+    try { if (this.geyser) this.geyser.applyStaged(id, (msg) => p.log(msg, 'sys')); } catch (e) { p.log(T('Geyser update not applied: {error}', { error: e.message }), 'sys'); }
     // Port aus server.properties übernehmen, falls dort geändert
     const propsFile = path.join(dir, 'server.properties');
     if (fs.existsSync(propsFile)) fs.writeFileSync(propsFile, writeProps(fs.readFileSync(propsFile, 'utf8'), { 'server-port': s.port }));
@@ -466,8 +467,8 @@ class MinecraftManager {
     let javaExe = s.javaPath && fs.existsSync(s.javaPath) ? s.javaPath : null;
     if (!javaExe) {
       if (!this.ctx.services.java.isInstalled(s.javaMajor)) {
-        p.log(`Java ${s.javaMajor} wird heruntergeladen …`, 'sys');
-        const job = runJob(`Java ${s.javaMajor} installieren`, (j) => this.ctx.services.java.ensure(s.javaMajor, j), { key: 'java-' + s.javaMajor });
+        p.log(T('Downloading Java {major} …', { major: s.javaMajor }), 'sys');
+        const job = runJob(T('Install Java {javaMajor}', { javaMajor: s.javaMajor }), (j) => this.ctx.services.java.ensure(s.javaMajor, j), { key: 'java-' + s.javaMajor });
         await job.promise;
       }
       javaExe = this.ctx.services.java.exe(s.javaMajor);
@@ -499,7 +500,7 @@ class MinecraftManager {
       // „Gestartet“ = Prozess läuft; „bereit“ (Done) wird separat gemeldet.
       ready: () => new Promise((r) => setTimeout(r, 1500)),
     });
-    ready.then(() => broadcast({ type: 'toast', kind: 'success', text: `„${s.name}“ ist bereit (Port ${s.port}).` }));
+    ready.then(() => broadcast({ type: 'toast', kind: 'success', text: T('“{name}” is ready (port {port}).', { name: s.name, port: s.port }) }));
   }
 
   /**
@@ -534,9 +535,9 @@ class MinecraftManager {
       this.playerLine(id, p, clean);
       const m = clean.match(/TPS from last 1m, 5m, 15m: \*?([\d.]+)/);
       if (m) { p.setExtra({ tps: Number(m[1]) }); this.tools.addTps(id, Number(m[1])); }
-      if (/You need to agree to the EULA/i.test(clean)) p.log('Hinweis: Die EULA wurde nicht akzeptiert (eula.txt).', 'sys');
+      if (/You need to agree to the EULA/i.test(clean)) p.log(T('Note: the EULA was not accepted (eula.txt).'), 'sys');
       if (/UnsupportedClassVersionError|has been compiled by a more recent version of the Java Runtime/.test(clean)) {
-        p.log('Hinweis: Falsche Java-Version. Stelle in den Server-Einstellungen eine neuere Java-Version ein.', 'sys');
+        p.log(T('Note: wrong Java version. Choose a newer Java version in the server settings.'), 'sys');
       }
     };
     return { lineFilter, onLine };
@@ -588,7 +589,7 @@ class MinecraftManager {
         const bedrock = this.isBedrock(s);
         const r = bedrock ? await bedrockStatus(s.port) : await ping(s.port);
         if (bedrock && r) this.bedrock.seen(id, p, r);
-        if (!r) throw new Error('keine Antwort');
+        if (!r) throw new Error(T('no answer'));
         const patch = { playerCount: r.online, maxPlayersLive: r.max, liveMotd: r.motd };
         // Bedrock nennt keine Namen in der Antwort – die Liste kommt aus dem Protokoll
         if (bedrock) { if (r.online === 0) patch.players = []; } else
@@ -641,13 +642,13 @@ class MinecraftManager {
     const now = Date.now();
     const recent = (this.restartLog.get(id) || []).filter((t) => now - t < 5 * 60 * 1000);
     if (recent.length >= 3) {
-      p.log('Automatischer Neustart abgebrochen: 3 Abstürze in 5 Minuten.', 'sys');
+      p.log(T('Automatic restart cancelled: 3 crashes in 5 minutes.'), 'sys');
       return;
     }
     recent.push(now);
     this.restartLog.set(id, recent);
-    p.log('Server abgestürzt – Neustart in 5 Sekunden …', 'sys');
-    setTimeout(() => this.start(id).catch((e) => p.log('Neustart fehlgeschlagen: ' + e.message, 'sys')), 5000);
+    p.log(T('Server crashed – restarting in 5 seconds …'), 'sys');
+    setTimeout(() => this.start(id).catch((e) => p.log(T('Restart failed: {error}', { error: e.message }), 'sys')), 5000);
   }
 
   /** server.properties in einem beliebigen Serverordner ändern (z. B. bei einer Testkopie). */
@@ -672,7 +673,7 @@ class MinecraftManager {
 
   command(id, cmd) {
     const p = this.proc(id);
-    if (!p.child) throw Object.assign(new Error('Server läuft nicht.'), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'start' } });
+    if (!p.child) throw Object.assign(new Error(T('Server is not running.')), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'start' } });
     p.log('> ' + cmd, 'in');
     p.write(String(cmd).replace(/^\//, ''));
   }
@@ -764,53 +765,53 @@ class MinecraftManager {
 
   backup(id, label = '') {
     const s = this.get(id);
-    return runJob(`Backup von „${s.name}“`, async (job) => {
+    return runJob(T('Backup of “{name}”', { name: s.name }), async (job) => {
       const p = this.proc(id);
       // Bedrock: nur Welten und Einstellungen (die Programmdateien lädt ein Update ohnehin neu)
       if (this.isBedrock(s)) {
         const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
         const file = path.join(this.backupDir(id), `${stamp}${label ? '-' + slug(label) : ''}.zip`);
-        job.progress(20, 'Welten und Einstellungen sichern …');
+        job.progress(20, T('Backing up worlds and settings …'));
         await this.bedrock.backupTo(id, file);
-        job.log('Gespeichert: ' + file);
+        job.log(T('Saved: {file}', { file }));
         return { file: path.basename(file) };
       }
       const running = !!p.child;
       if (running) {
-        job.status('Speichern pausieren …');
+        job.status(T('Pausing saving …'));
         p.write('save-off');
         p.write('save-all flush');
         await new Promise((r) => setTimeout(r, 4000));
       }
       const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
       const file = path.join(this.backupDir(id), `${stamp}${label ? '-' + slug(label) : ''}.zip`);
-      job.progress(20, `Archiv wird erstellt (${fmtBytes(dirSize(this.dir(id)))}) …`);
+      job.progress(20, T('Creating archive ({fmtBytes}) …', { fmtBytes: fmtBytes(dirSize(this.dir(id))) }));
       try {
         await zipDir(this.dir(id), file, { exclude: ['session.lock', './cache', './server.jar.alt'] });
       } finally {
         if (running && p.child) p.write('save-on');
       }
-      job.log('Gespeichert: ' + file);
+      job.log(T('Saved: {file}', { file }));
       return { file: path.basename(file) };
     });
   }
 
   restore(id, file) {
     const s = this.get(id);
-    if (this.proc(id).isRunning()) throw Object.assign(new Error('Bitte den Server zuerst stoppen.'), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'stop' } });
+    if (this.proc(id).isRunning()) throw Object.assign(new Error(T('Please stop the server first.')), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'stop' } });
     const zip = path.join(this.backupDir(id), path.basename(file));
-    if (!fs.existsSync(zip)) throw new Error('Backup nicht gefunden.');
-    return runJob(`Backup für „${s.name}“ wiederherstellen`, async (job) => {
-      job.progress(5, 'Sicherheits-Backup des aktuellen Stands …');
+    if (!fs.existsSync(zip)) throw new Error(T('Backup not found.'));
+    return runJob(T('Restore backup for “{name}”', { name: s.name }), async (job) => {
+      job.progress(5, T('Safety backup of the current state …'));
       const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
       if (this.isBedrock(s)) {
         await this.bedrock.backupTo(id, path.join(this.backupDir(id), `${stamp}-vor-wiederherstellung.zip`));
-        job.progress(50, 'Welten und Einstellungen ersetzen …');
+        job.progress(50, T('Replacing worlds and settings …'));
         await this.bedrock.restoreFrom(id, zip);
         return { ok: true };
       }
       await zipDir(this.dir(id), path.join(this.backupDir(id), `${stamp}-vor-wiederherstellung.zip`), { exclude: ['session.lock'] });
-      job.progress(50, 'Dateien ersetzen …');
+      job.progress(50, T('Replacing files …'));
       const dir = this.dir(id);
       for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f), { recursive: true, force: true });
       await unzipTo(zip, dir);
@@ -859,7 +860,7 @@ class MinecraftManager {
     try { this.sources.lastSuggestions.set(id, this.sources.autoLink(id, out)); } catch { /* egal */ }
     // Herkunft immer mitliefern (Marktplatz, verknüpfte Quelle oder von Hand)
     let origins = {}; try { origins = this.sources.origins(id); } catch { /* egal */ }
-    for (const p of out) p.origin = origins[p.file.replace(/\.disabled$/i, '')] || { source: 'manual', label: 'Von Hand', page: null };
+    for (const p of out) p.origin = origins[p.file.replace(/\.disabled$/i, '')] || { source: 'manual', label: T('Manually'), page: null };
     // Ordner mit Einstellungen und Daten (für den Knopf „Ordner“): plugins/<Name>/ bzw. bei Mods config/<modid…>/
     const isMods = path.basename(d) === 'mods';
     const cfgRoot = isMods ? path.join(this.dir(id), 'config') : d;
@@ -888,24 +889,24 @@ class MinecraftManager {
     this.searchCache = this.searchCache || new Map();
     let j;
     try { j = await fetchJson(url); this.searchCache.set(url, j); if (this.searchCache.size > 60) this.searchCache.delete(this.searchCache.keys().next().value); } catch (e) {
-      if (this.searchCache.has(url)) j = this.searchCache.get(url); else throw new Error(`Der Marktplatz (Modrinth) ist gerade nicht erreichbar – ${require('./hw').core('humanize').humanize(e)}`);
+      if (this.searchCache.has(url)) j = this.searchCache.get(url); else throw new Error(T('The marketplace (Modrinth) isn\'t reachable right now – {v1}', { v1: require('./hw').core('humanize').humanize(e) }));
     }
     return j.hits.map((h) => ({ id: h.project_id, slug: h.slug, title: h.title, description: h.description, icon: h.icon_url, downloads: h.downloads, author: h.author, categories: h.display_categories || h.categories }));
   }
 
   modrinthInstall(id, projectId) {
     const s = this.get(id);
-    return runJob('Plugin installieren', async (job) => {
+    return runJob(T('Install plugin'), async (job) => {
       const loaders = (providers[s.type] && providers[s.type].loaders) || ['paper', 'spigot', 'bukkit'];
       const q = `loaders=${encodeURIComponent(JSON.stringify(loaders))}` + (s.version && !['custom', 'velocity'].includes(s.type) ? `&game_versions=${encodeURIComponent(JSON.stringify([s.version]))}` : '');
       const versions = await fetchJson(`https://api.modrinth.com/v2/project/${encodeURIComponent(projectId)}/version?${q}`);
       const v = versions[0];
-      if (!v) throw new Error(`Keine passende Plugin-Version für ${s.version} gefunden.`);
+      if (!v) throw new Error(T('No matching plugin version found for {version}.', { version: s.version }));
       const file = v.files.find((f) => f.primary) || v.files[0];
       const d = this.addonDir(id);
       fs.mkdirSync(d, { recursive: true });
       job.log(`${v.name} (${v.version_number})`);
-      await downloadFile(file.url, path.join(d, path.basename(file.filename)), { sha1: file.hashes && file.hashes.sha1, onProgress: (r, t) => job.progress(t ? (r / t) * 100 : 50, `${file.filename} herunterladen`) });
+      await downloadFile(file.url, path.join(d, path.basename(file.filename)), { sha1: file.hashes && file.hashes.sha1, onProgress: (r, t) => job.progress(t ? (r / t) * 100 : 50, T('Download {filename}', { filename: file.filename })) });
       return { file: file.filename, needsRestart: this.proc(id).isRunning() };
     });
   }
@@ -921,7 +922,7 @@ class MinecraftManager {
     for (const f of files) hashes[await this.jarSha1(path.join(d, f))] = f;
     const post = async (url, body) => {
       const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': APP_UA }, body: JSON.stringify(body), signal: AbortSignal.timeout(20000) });
-      if (!res.ok) throw new Error(`Modrinth antwortet mit ${res.status}`);
+      if (!res.ok) throw new Error(T('Modrinth responds with {status}', { status: res.status }));
       return res.json();
     };
     const loaders = (providers[s.type] && providers[s.type].loaders) || ['paper', 'spigot', 'bukkit'];
@@ -989,7 +990,7 @@ class MinecraftManager {
     finalName = path.basename(finalName);
     const mods = this.content(this.get(id)) === 'mods';
     const head = Buffer.alloc(2); const fd = fs.openSync(tmp, 'r'); fs.readSync(fd, head, 0, 2, 0); fs.closeSync(fd);
-    if (head.toString() !== 'PK') { fs.rmSync(tmp, { force: true }); throw new Error('Der Download ist keine JAR-Datei – vermutlich eine Webseite (Anmeldung/externer Download nötig).'); }
+    if (head.toString() !== 'PK') { fs.rmSync(tmp, { force: true }); throw new Error(T('The download isn\'t a JAR file – probably a web page (sign-in/external download needed).')); }
     const move = (a, b) => { try { fs.renameSync(a, b); } catch (e) { if (e.code !== 'EXDEV') throw e; fs.copyFileSync(a, b); fs.rmSync(a, { force: true }); } };
     const running = this.proc(id).isRunning();
     // Deaktivierte Plugins sind nicht geladen (keine Sperre) – und bei gestopptem Mod-Server ist auch nichts gesperrt
@@ -997,7 +998,7 @@ class MinecraftManager {
       const target = path.join(d, finalName + (disabled ? '.disabled' : ''));
       if (replace) for (const f of [replace, replace + '.disabled']) if (path.join(d, f) !== target) fs.rmSync(path.join(d, f), { force: true });
       move(tmp, target);
-      return { mode: 'copy', file: path.basename(target), text: 'ersetzt' };
+      return { mode: 'copy', file: path.basename(target), text: T('replaced') };
     }
     // Eingangsordner unter dem endgültigen Dateinamen (die Bridge/Warteschlange übernimmt den Namen)
     const inbox = path.join(this.dir(id), 'plugins', '.hostwerk', 'incoming');
@@ -1008,7 +1009,7 @@ class MinecraftManager {
       if (mods) {
         // Mods lassen sich nicht im laufenden Server tauschen → einreihen
         this.live.queue(id, jar, { name: (replace || finalName).replace(/.jar$/i, ''), replace, dir: 'mods' });
-        return { mode: 'queued', file: finalName, text: 'wartet auf den nächsten Stopp/Neustart' };
+        return { mode: 'queued', file: finalName, text: T('waiting for the next stop/restart') };
       }
       let expectName = null;
       if (replace && fs.existsSync(path.join(d, replace))) { try { const m = await this.readMeta(path.join(d, replace)); expectName = m && m.name; } catch { /* unbekannt */ } }
@@ -1021,7 +1022,7 @@ class MinecraftManager {
   }
 
   updatePlugins(id, only) {
-    return runJob('Plugins aktualisieren', async (job) => {
+    return runJob(T('Update plugins'), async (job) => {
       const want = Array.isArray(only) ? new Set(only) : only ? new Set([only]) : null; // eine Datei, eine Auswahl oder alle
       const list = (await this.pluginUpdates(id)).filter((p) => p.update && (!want || want.has(p.file)));
       if (!list.length) return { updated: 0 };
@@ -1050,7 +1051,7 @@ class MinecraftManager {
         if (r.mode === 'queued') { srcAll[base] = { ...prev, pending: v.version_number }; if (newBase !== base) srcAll[newBase] = rec; }
         else { if (newBase !== base) delete srcAll[base]; srcAll[newBase] = rec; }
         this.market.saveSources(id, srcAll);
-        job.log(r.mode === 'queued' ? `✓ ${p.file} → ${v.version_number} (wartet – wird beim nächsten Stopp oder Neustart eingespielt)` : r.mode === 'hot' ? `✓ ${p.file} → ${newBase} (live ausgetauscht, ohne Neustart)` : `✓ ${p.file} → ${newBase}`);
+        job.log(r.mode === 'queued' ? T('✓ {file} → {version_number} (waiting – will be applied at the next stop or restart)', { file: p.file, version_number: v.version_number }) : r.mode === 'hot' ? T('✓ {file} → {newBase} (swapped live, no restart)', { file: p.file, newBase }) : `✓ ${p.file} → ${newBase}`);
       }
       return { updated: list.length, needsRestart: false, queued: this.live.pendingList(id).length };
     }, { key: 'mc-plugin-update-' + id });
@@ -1081,24 +1082,24 @@ class MinecraftManager {
 
   /** Welt (ganzer Ordner) oder nur eine Dimension daraus (dim = z. B. minecraft:the_nether) zurücksetzen. */
   resetWorld(id, name, dim = null) {
-    if (this.proc(id).isRunning()) throw Object.assign(new Error('Bitte den Server zuerst stoppen.'), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'stop' } });
+    if (this.proc(id).isRunning()) throw Object.assign(new Error(T('Please stop the server first.')), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'stop' } });
     const w = this.worlds(id).worlds.find((x) => x.name === name);
-    if (!w) throw Object.assign(new Error('Welt nicht gefunden'), { status: 404 });
+    if (!w) throw Object.assign(new Error(T('World not found')), { status: 404 });
     const d = dim ? (w.dims || []).find((x) => x.id === dim) : null;
-    if (dim && !(d && d.path)) throw Object.assign(new Error('Diese Dimension lässt sich nicht einzeln zurücksetzen – setze die ganze Welt zurück.'), { status: 400 });
+    if (dim && !(d && d.path)) throw Object.assign(new Error(T('This dimension can’t be reset on its own – reset the whole world.')), { status: 400 });
     const label = d ? `${name} · ${dim}` : name;
-    return runJob(`Welt „${label}“ zurücksetzen`, async (job) => {
-      job.progress(10, 'Sicherheits-Backup …');
+    return runJob(T('Reset world “{label}”', { label }), async (job) => {
+      job.progress(10, T('Safety backup …'));
       await this.backup(id, `vor-reset-${(d ? `${name}-${dim.split(':').pop()}` : name).replace(/[^\w.-]+/g, '-')}`).promise;
       fs.rmSync(d ? path.join(this.worldPath(id, name), d.path) : this.worldPath(id, name), { recursive: true, force: true });
-      job.log(`${d ? `Dimension ${dim} in ${name}` : `Welt ${name}`} gelöscht – wird beim nächsten Start neu erzeugt.`);
+      job.log(T('{v1} deleted – it is recreated at the next start.', { v1: d ? T('Dimension {dim} in {name}', { dim, name }) : T('World {name}', { name }) }));
       return { ok: true };
     });
   }
 
   async worldZip(id, name) {
     const w = this.worlds(id).worlds.find((x) => x.name === name);
-    if (!w) throw Object.assign(new Error('Welt nicht gefunden'), { status: 404 });
+    if (!w) throw Object.assign(new Error(T('World not found')), { status: 404 });
     const out = path.join(this.paths.cache, `${slug(this.get(id).name)}-${name}-${Date.now()}.zip`);
     if (this.isBedrock(this.get(id))) { await this.bedrock.withHold(id, () => zipDir(this.worldPath(id, name), out)); return out; }
     if (this.proc(id).child) { this.command(id, 'save-all flush'); await new Promise((r) => setTimeout(r, 2500)); }
@@ -1163,18 +1164,18 @@ class MinecraftManager {
   }
   /** Spielregel setzen: läuft der Server per Befehl, sonst direkt in der Weltdatei. */
   setGamerule(id, name, value) {
-    if (!/^[\w:.-]+$/.test(String(name))) throw new Error('Ungültiger Regelname.');
+    if (!/^[\w:.-]+$/.test(String(name))) throw new Error(T('Invalid rule name.'));
     const p = this.proc(id);
     const v = typeof value === 'boolean' ? String(value) : String(value).trim();
-    if (!/^(true|false|-?\d+)$/.test(v)) throw new Error('Wert muss true/false oder eine Zahl sein.');
+    if (!/^(true|false|-?\d+)$/.test(v)) throw new Error(T('Value must be true/false or a number.'));
     if (p.child) { this.command(id, `gamerule ${name} ${v}`); return { live: true }; }
     const src = this.gamerulesFile(id);
-    if (!src) throw new Error('Noch keine Welt – starte den Server einmal, dann lassen sich die Regeln ändern.');
+    if (!src) throw new Error(T('No world yet – start the server once, then the rules can be changed.'));
     const nbt = require('./nbt');
     if (src.modern) {
       const doc = nbt.read(src.file);
       const data = (doc.root.v.find(([k]) => k === 'data') || [])[1];
-      if (!data) throw new Error('Unbekanntes Format der Spielregel-Datei.');
+      if (!data) throw new Error(T('Unknown format of the game rule file.'));
       const key = name.includes(':') ? name : `minecraft:${name}`;
       const cur = data.v.find(([k]) => k === key);
       const node = /^(true|false)$/.test(v) ? { t: nbt.T.BYTE, v: v === 'true' ? 1 : 0 } : { t: cur && cur[1].t !== nbt.T.BYTE ? cur[1].t : nbt.T.INT, v: Number(v) };
@@ -1202,11 +1203,11 @@ class MinecraftManager {
 
   setupMap(id) {
     const s = this.get(id);
-    return runJob(`Karte für „${s.name}“ einrichten`, async (job) => {
+    return runJob(T('Set up map for “{name}”', { name: s.name }), async (job) => {
       const st = this.mapStatus(id);
-      if (!st.supported) throw new Error('Vanilla-Server unterstützen keine Plugins – wechsle unter „Version“ auf Paper oder Purpur.');
+      if (!st.supported) throw new Error(T('Vanilla servers do not support plugins – switch to Paper or Purpur under “Version”.'));
       if (!st.installed) {
-        job.progress(10, 'BlueMap von Modrinth laden …');
+        job.progress(10, T('Downloading BlueMap from Modrinth …'));
         await this.modrinthInstall(id, 'bluemap').promise;
       }
       const confDir = this.mapConfDir(id);
@@ -1214,12 +1215,12 @@ class MinecraftManager {
       // Download der Minecraft-Ressourcen erlauben (BlueMap fragt das sonst beim ersten Start ab)
       const core = path.join(confDir, 'core.conf');
       if (fs.existsSync(core)) fs.writeFileSync(core, fs.readFileSync(core, 'utf8').replace(/^(\s*accept-download\s*[:=]\s*)false/m, '$1true'));
-      else fs.writeFileSync(core, '# Von Hostwerk angelegt – BlueMap ergänzt fehlende Einstellungen selbst.\naccept-download: true\n');
+      else fs.writeFileSync(core, '# Created by Hostwerk – BlueMap adds missing settings itself.\naccept-download: true\n');
       const web = path.join(confDir, 'webserver.conf');
       if (!fs.existsSync(web)) {
         const used = this.list().filter((x) => x.id !== id).map((x) => this.mapStatus(x.id).port);
         const port = await findFreePort(8100, used);
-        fs.writeFileSync(web, `# Von Hostwerk angelegt\nenabled: true\nwebroot: "bluemap/web"\nport: ${port}\n`);
+        fs.writeFileSync(web, `# Created by Hostwerk\nenabled: true\nwebroot: "bluemap/web"\nport: ${port}\n`);
       }
       const running = !!this.proc(id).child;
       return { ...this.mapStatus(id), needsRestart: running };
@@ -1231,7 +1232,7 @@ class MinecraftManager {
     const mgr = this;
     const s = this.get(id);
     this.selfTesting = this.selfTesting || new Set();
-    return runJob(`Server-Prüfung: ${s.name}`, async (job) => {
+    return runJob(T('Server check: {name}', { name: s.name }), async (job) => {
       const p = this.proc(id);
       const wasRunning = !!p.child;
       this.selfTesting.add(id);
@@ -1240,32 +1241,32 @@ class MinecraftManager {
       const wait = (ms) => new Promise((r) => setTimeout(r, ms));
       const t0 = Date.now();
       if (!wasRunning) {
-        job.progress(5, 'Server starten …');
-        try { await this.start(id); } catch (e) { add('Server startet', 'fail', e.message); return finish(); }
+        job.progress(5, T('Starting server …'));
+        try { await this.start(id); } catch (e) { add(T('Server starts'), 'fail', e.message); return finish(); }
       }
-      job.progress(15, 'Warte, bis der Server bereit ist …');
+      job.progress(15, T('Waiting until the server is ready …'));
       for (let i = 0; i < 360 && !p.extra.ready && p.child; i++) await wait(500);
       const since = p.startedAt || t0;
       const logs = () => p.logs.filter((e) => e.t >= since).map((e) => e.l.replace(/\x1b\[[0-9;]*m/g, ''));
-      if (!p.child) { add('Server startet', 'fail', 'Der Prozess wurde beendet – siehe Konsole.'); return finish(); }
-      if (!p.extra.ready) { add('Server startet', 'fail', 'Nach 3 Minuten noch nicht bereit („Done“ fehlt).'); return finish(); }
+      if (!p.child) { add(T('Server starts'), 'fail', T('The process ended – see the console.')); return finish(); }
+      if (!p.extra.ready) { add(T('Server starts'), 'fail', T('Not ready after 3 minutes (“Done” missing).')); return finish(); }
       const done = logs().map((l) => l.match(/Done \(([\d.,]+)s\)!/)).find(Boolean);
-      add('Server startet', 'ok', done ? `bereit nach ${done[1].replace(',', '.')} s` : 'bereit');
+      add(T('Server starts'), 'ok', done ? T('ready after {sec} s', { sec: done[1].replace(',', '.') }) : T('ready'));
       if (mgr.isBedrock(s)) {
         // Bedrock: keine Plugins, kein „version“-Befehl – Protokoll und Antwort auf dem UDP-Port
         const errs = logs().filter((l) => /\b(ERROR|SEVERE)\b|\[error\]/i.test(l) && !/^>/.test(l));
-        add('Protokoll ohne Fehler', errs.length === 0 ? 'ok' : errs.length < 5 ? 'warn' : 'fail', errs.length ? `${errs.length} Fehlerzeile(n), z. B.: ${errs[0].slice(0, 160)}` : 'keine Fehler seit dem Start');
+        add(T('Log without errors'), errs.length === 0 ? 'ok' : errs.length < 5 ? 'warn' : 'fail', errs.length ? T('{n} error line(s), e.g.: {line}', { n: errs.length, line: errs[0].slice(0, 160) }) : T('no errors since the start'));
         // RakNet (UDP) oder NetherNet (GET /v1/join über TCP); NetherNet ohne Antwort: Weg bei Mojang nicht beschrieben → „unbekannt“
         const pong = await bedrockStatus(s.port, '127.0.0.1', 3000).catch(() => null);
         if (pong) mgr.bedrock.seen(s.id, p, pong);
         const nn = (s.bdsNet || {}).transport === 'nethernet';
-        add('Port erreichbar', pong ? 'ok' : nn ? 'warn' : 'fail', pong ? `${pong.via === 'nethernet' ? `TCP ${s.port} (NetherNet)` : `UDP ${s.port}`} · Bedrock ${pong.version}` : nn ? `NetherNet: keine Antwort auf TCP ${s.port} – Zustand unbekannt (Mojang beschreibt keine Statusabfrage)` : `UDP ${s.port}`);
+        add(T('Port reachable'), pong ? 'ok' : nn ? 'warn' : 'fail', pong ? `${pong.via === 'nethernet' ? `TCP ${s.port} (NetherNet)` : `UDP ${s.port}`} · Bedrock ${pong.version}` : nn ? T('NetherNet: no answer on TCP {port} – state unknown (Mojang documents no status query)', { port: s.port }) : `UDP ${s.port}`);
         const memB = p.stats && p.stats.memory ? Math.round(p.stats.memory / 1048576) : null;
-        if (memB) add('Arbeitsspeicher', 'ok', `${memB} MB belegt`);
+        if (memB) add(T('Memory'), 'ok', T('{mb} MB used', { mb: memB }));
         return finish();
       }
 
-      job.progress(45, 'Befehle senden …');
+      job.progress(45, T('Sending commands …'));
       const mark = p.logs.length;
       // Mod-Server kennen den Befehl „plugins“ nicht – dort nur Version und Start prüfen
       const pluginsOk = (providers[s.type] ? providers[s.type].plugins !== false : true) && this.content(s) !== 'mods';
@@ -1284,21 +1285,21 @@ class MinecraftManager {
           if (m && !failed.includes(m[1])) failed.push(m[1]);
         }
         const count = (answer.join(' ').match(/Plugins \((\d+)\)/i) || [])[1];
-        if (failed.length) add('Plugins laden', 'fail', `Fehler bei: ${failed.join(', ')}`);
-        else add('Plugins laden', 'ok', count !== undefined ? `${count} Plugin(s) aktiv` : 'keine Ladefehler');
+        if (failed.length) add(T('Plugins load'), 'fail', T('Errors in: {list}', { list: failed.join(', ') }));
+        else add(T('Plugins load'), 'ok', count !== undefined ? T('{n} plugin(s) active', { n: count }) : T('no load errors'));
       }
       // Fehler im Protokoll
       const errs = logs().filter((l) => /\b(ERROR|SEVERE)\b|Exception\b/.test(l) && !/^>/.test(l));
-      add('Protokoll ohne Fehler', errs.length === 0 ? 'ok' : errs.length < 5 ? 'warn' : 'fail', errs.length ? `${errs.length} Fehlerzeile(n), z. B.: ${errs[0].slice(0, 160)}` : 'keine Fehler seit dem Start');
+      add(T('Log without errors'), errs.length === 0 ? 'ok' : errs.length < 5 ? 'warn' : 'fail', errs.length ? T('{n} error line(s), e.g.: {line}', { n: errs.length, line: errs[0].slice(0, 160) }) : T('no errors since the start'));
       // TPS
       const tpsLine = answer.find((l) => /TPS from last 1m/.test(l));
       if (tpsLine) {
         const tps = Number((tpsLine.match(/1m, 5m, 15m:\s*\*?([\d.]+)/) || [])[1]);
-        add('Leistung (TPS)', tps >= 19.5 ? 'ok' : tps >= 17 ? 'warn' : 'fail', `${tps} von 20 Ticks pro Sekunde`);
+        add(T('Performance (TPS)'), tps >= 19.5 ? 'ok' : tps >= 17 ? 'warn' : 'fail', T('{tps} of 20 ticks per second', { tps }));
       }
       // Arbeitsspeicher
       const mem = p.stats && p.stats.memory ? Math.round(p.stats.memory / 1048576) : null;
-      if (mem) add('Arbeitsspeicher', mem < s.memMax * 1.15 ? 'ok' : 'warn', `${mem} MB belegt, Limit ${s.memMax} MB`);
+      if (mem) add(T('Memory'), mem < s.memMax * 1.15 ? 'ok' : 'warn', T('{mb} MB used, limit {max} MB', { mb: mem, max: s.memMax }));
       // Port erreichbar
       const portOk = await new Promise((resolve) => {
         const sock = require('net').connect({ port: s.port, host: '127.0.0.1' });
@@ -1306,7 +1307,7 @@ class MinecraftManager {
         sock.once('connect', () => { clearTimeout(t); sock.destroy(); resolve(true); });
         sock.once('error', () => { clearTimeout(t); resolve(false); });
       });
-      add('Port erreichbar', portOk ? 'ok' : 'fail', `localhost:${s.port}`);
+      add(T('Port reachable'), portOk ? 'ok' : 'fail', `localhost:${s.port}`);
       // Version
       const ver = answer.find((l) => /This server is running|Current:|version/i.test(l));
       if (ver) add('Version', 'ok', ver.replace(/^.*?(This server is running|Checking version.*?)/, '$1').slice(0, 140));
@@ -1314,7 +1315,7 @@ class MinecraftManager {
 
       async function finish() {
         mgr.selfTesting.delete(id);
-        if (!wasRunning && p.child) { job.progress(92, 'Server wieder stoppen …'); await mgr.stop(id).catch(() => {}); }
+        if (!wasRunning && p.child) { job.progress(92, T('Stopping server again …')); await mgr.stop(id).catch(() => {}); }
         const result = { at: Date.now(), ms: Date.now() - t0, checks, ok: checks.every((c) => c.status !== 'fail'), warnings: checks.filter((c) => c.status === 'warn').length };
         mgr.selfTests.set(id, result);
         return result;
@@ -1332,7 +1333,7 @@ class MinecraftManager {
 
   async remove(id) {
     const p = this.proc(id);
-    if (p.isRunning()) throw Object.assign(new Error('Bitte den Server zuerst stoppen.'), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'stop' } });
+    if (p.isRunning()) throw Object.assign(new Error(T('Please stop the server first.')), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'stop' } });
     const list = this.list();
     const i = list.findIndex((s) => s.id === id);
     const dir = this.dir(id);
@@ -1364,7 +1365,7 @@ class MinecraftManager {
     r.get('/mc/modpacks/:id', async (req, res) => { const v = await modpackVersion(req.params.id, req.query.version); res.json({ ...v, file: undefined, size: v.file && v.file.size, java: await javaFor(v.mc) }); });
     r.get('/mc/versions/:type', async (req, res) => {
       const p = providers[req.params.type];
-      if (!p) throw new Error('Unbekannter Typ');
+      if (!p) throw new Error(T('Unknown type'));
       res.json(await p.versions());
     });
     r.get('/mc/java-for/:version', async (req, res) => res.json({ major: await javaFor(req.params.version) }));
@@ -1374,7 +1375,7 @@ class MinecraftManager {
       res.json({ totalMem: os.totalmem(), freeMem: os.freemem(), cpus: os.cpus().length, cpu: h ? h.cpu : null, lan: lanIps() });
     });
     r.post('/mc/upload-jar', upload.single('file'), (req, res) => {
-      if (!req.file || !/\.jar$/i.test(req.file.originalname)) throw new Error('Bitte eine .jar-Datei hochladen.');
+      if (!req.file || !/\.jar$/i.test(req.file.originalname)) throw new Error(T('Please upload a .jar file.'));
       const id = crypto.randomUUID();
       const d = path.join(this.paths.cache, 'uploads');
       const file = path.join(d, id + '.jar');
@@ -1424,15 +1425,14 @@ class MinecraftManager {
     r.post('/mc/servers/:id/restart-warn', (req, res) => {
       const id = req.params.id;
       const secs = Math.max(0, Math.min(600, Math.round(Number((req.body || {}).seconds) || 0)));
-      if (!this.proc(id).child) throw Object.assign(new Error('Server läuft nicht.'), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'start' } });
-      const en = (this.settings.get().general.language || 'de') === 'en';
-      const job = runJob(`Neustart von „${this.get(id).name}“ in ${secs} s`, async (j) => {
+      if (!this.proc(id).child) throw Object.assign(new Error(T('Server is not running.')), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'start' } });
+      const job = runJob(T('Restart of “{name}” in {secs} s', { name: this.get(id).name, secs }), async (j) => {
         const steps = secs > 0 ? [secs, ...[540, 480, 420, 360, 300, 240, 180, 120, 60, 30, 10, 5, 4, 3, 2, 1].filter((x) => x < secs)] : [];
         for (let i = 0; i < steps.length; i++) {
           const sec = steps[i];
-          const t = sec >= 60 && sec % 60 === 0 ? (en ? `${sec / 60} minute${sec === 60 ? '' : 's'}` : `${sec / 60} ${sec === 60 ? 'Minute' : 'Minuten'}`) : (en ? `${sec} second${sec === 1 ? '' : 's'}` : `${sec} ${sec === 1 ? 'Sekunde' : 'Sekunden'}`);
-          try { this.command(id, `say ${sec > 10 ? '§e' : '§c'}${en ? `Server restarts in ${t}.` : `Server startet in ${t} neu.`}`); } catch { return { cancelled: true }; }
-          j.progress(Math.round((i / steps.length) * 80), `Neustart in ${sec} s`);
+          const t = sec >= 60 && sec % 60 === 0 ? T(sec === 60 ? '{n} minute' : '{n} minutes', { n: sec / 60 }) : T(sec === 1 ? '{n} second' : '{n} seconds', { n: sec });
+          try { this.command(id, `say ${sec > 10 ? '§e' : '§c'}${T('Server restarts in {t}.', { t })}`); } catch { return { cancelled: true }; }
+          j.progress(Math.round((i / steps.length) * 80), T('Restart in {sec} s', { sec }));
           await new Promise((r) => setTimeout(r, (sec - (steps[i + 1] || 0)) * 1000));
         }
         await this.restart(id);
@@ -1457,7 +1457,7 @@ class MinecraftManager {
       if (!this.live.supported(id)) return res.json([]);
       const jar = path.join(__dirname, 'bridge', 'HostwerkBridge.jar');
       const meta = (await this.readMeta(jar).catch(() => null)) || {};
-      res.json([{ id: 'bridge', name: 'HostwerkBridge', version: meta.version || null, description: 'Verbindung zu Hostwerk – Plugin-Live-Updates ohne Server-Neustart. Gehört zu Hostwerk und wird mit Hostwerk aktuell gehalten.', icon: '/api/mc/hostwerk-plugins/bridge/icon', installed: this.live.bridgePresent(id), disabled: this.live.bridgeDisabled(id) }]);
+      res.json([{ id: 'bridge', name: 'HostwerkBridge', version: meta.version || null, description: T('Connection to Hostwerk – plugin live updates without restarting the server. Part of Hostwerk and kept up to date with Hostwerk.'), icon: '/api/mc/hostwerk-plugins/bridge/icon', installed: this.live.bridgePresent(id), disabled: this.live.bridgeDisabled(id) }]);
     });
     r.get('/mc/hostwerk-plugins/bridge/icon', async (req, res) => {
       const hit = await require('./pluginicon').iconFile(path.join(__dirname, 'bridge', 'HostwerkBridge.jar'), this.ctx.paths.cache).catch(() => null);
@@ -1528,7 +1528,7 @@ class MinecraftManager {
     r.put('/mc/servers/:id/gamerules', (req, res) => res.json(this.setGamerule(req.params.id, String((req.body || {}).name || ''), (req.body || {}).value)));
     r.post('/mc/servers/:id/gamerules', (req, res) => {
       const { name, value } = req.body || {};
-      if (!/^\w+$/.test(name || '') || !/^(true|false|-?\d+)$/.test(String(value))) throw new Error('Ungültige Gamerule');
+      if (!/^\w+$/.test(name || '') || !/^(true|false|-?\d+)$/.test(String(value))) throw new Error(T('Invalid game rule'));
       this.command(req.params.id, `gamerule ${name} ${value}`);
       res.json({ ok: true });
     });
@@ -1540,9 +1540,9 @@ class MinecraftManager {
     });
     r.put('/mc/servers/:id/icon', async (req, res) => {
       const m = String((req.body || {}).png || '').match(/^data:image\/png;base64,(.+)$/);
-      if (!m) throw new Error('Bitte ein PNG-Bild übergeben.');
+      if (!m) throw new Error(T('Please provide a PNG image.'));
       const buf = Buffer.from(m[1], 'base64');
-      if (buf.readUInt32BE(16) !== 64 || buf.readUInt32BE(20) !== 64) throw new Error('Das Server-Symbol muss genau 64×64 Pixel groß sein.');
+      if (buf.readUInt32BE(16) !== 64 || buf.readUInt32BE(20) !== 64) throw new Error(T('The server icon must be exactly 64×64 pixels.'));
       fs.writeFileSync(path.join(this.dir(req.params.id), 'server-icon.png'), buf);
       require('./hw').core('events').broadcast({ type: 'icon', kind: 'mc', id: req.params.id, v: Date.now() });
       const running = this.proc(req.params.id).isRunning();

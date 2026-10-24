@@ -12,9 +12,9 @@ import { getLang } from '@hostwerk/kit';
  */
 
 const KNOWN = {
-  'minecraft:overworld': { de: 'Oberwelt', en: 'Overworld' },
+  'minecraft:overworld': { de: 'Overworld', en: 'Overworld' },
   'minecraft:the_nether': { de: 'Nether', en: 'Nether' },
-  'minecraft:the_end': { de: 'Das Ende', en: 'The End' },
+  'minecraft:the_end': { de: 'The End', en: 'The End' },
 };
 
 /** Anzeigename: aus dem Katalog, für die drei eingebauten mitgeliefert, sonst aus der Kennung („deep_dark_caves“ → „Deep dark caves“). */

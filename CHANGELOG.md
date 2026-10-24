@@ -10,6 +10,8 @@ Minecraft servers as their own extension (moved out of Hostwerk 3.1).
 - Plugin live update also for plugins other plugins depend on (they are reloaded with it).
 - MOTD and server icon without restart, icon cropping, grouped quick actions, worlds with all dimensions and their icons.
 - An update of the extension keeps running servers running (the new version takes over their processes).
+- Built like every other extension: English texts with German in `locales/de.json` (also messages of jobs, console and
+  server check that Hostwerk never translated before), own styles (`ui/index.css`), banner and screenshots.
 
 Kurz: Minecraft-Server als eigene Erweiterung (aus Hostwerk 3.1 ausgelagert), mit allen bisherigen Funktionen und den
 Neuerungen vom 24.10.2026; ein Update der Erweiterung lässt laufende Server weiterlaufen.

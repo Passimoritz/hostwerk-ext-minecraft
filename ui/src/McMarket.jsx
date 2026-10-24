@@ -4,11 +4,12 @@ import { get, post, waitJob, fmtNumber, fmtDate, openExternal } from '@hostwerk/
 import { Btn, Seg, Tabs, Modal, Loading, Empty, Callout, toast, InfoTip } from '@hostwerk/ui';
 import { Markdown } from '@hostwerk/kit';
 import { LazyImg } from '@hostwerk/kit';
+import { t as T } from '@hostwerk/i18n';
 
 const SRC = { modrinth: { label: 'Modrinth', color: '#1bd96a' }, hangar: { label: 'Hangar', color: '#3b82f6' } };
 const ago = (d) => {
   const days = Math.floor((Date.now() - new Date(d).getTime()) / 86400e3);
-  return days < 1 ? 'heute' : days < 30 ? `vor ${days} T.` : days < 365 ? `vor ${Math.floor(days / 30)} Mon.` : `vor ${Math.floor(days / 365)} J.`;
+  return days < 1 ? T('today') : days < 30 ? T('{n} d ago', { n: days }) : days < 365 ? T('{n} mo. ago', { n: Math.floor(days / 30) }) : T('{n} y. ago', { n: Math.floor(days / 365) });
 };
 
 function SourceBadge({ source, also }) {
@@ -33,7 +34,7 @@ function Detail({ s, hit, onClose, onInstalled }) {
     try {
       const r = await post(`/mc/servers/${s.id}/market/install`, { source: d.source, id: d.id, version: ver });
       const j = await waitJob(r.job);
-      toast.success(`${j.result.title} ${j.result.version} ${j.result.mode === 'queued' ? 'wartet – wird beim nächsten Stopp oder Neustart eingespielt' : j.result.mode === 'hot' ? 'live ausgetauscht, ohne Neustart' : `installiert${j.result.needsRestart ? ' – wirkt nach einem Neustart (oder Live-Update)' : ''}`}`);
+      toast.success(`${j.result.title} ${j.result.version} ${j.result.mode === 'queued' ? T('waiting – applied at the next stop or restart') : j.result.mode === 'hot' ? T('swapped live, without restart') : `${T('installed')}${j.result.needsRestart ? T(' – takes effect after a restart (or live update)') : ''}`}`);
       onInstalled && onInstalled();
       onClose();
     } catch (e) { toast.error(e.message); }
@@ -42,30 +43,30 @@ function Detail({ s, hit, onClose, onInstalled }) {
   const v = d && d.versions.find((x) => x.id === ver);
   return (
     <Modal size="wide" onClose={onClose} title={<span className="row-tight" style={{ gap: 10 }}>{hit.icon ? <LazyImg src={hit.icon} style={{ width: 32, height: 32, borderRadius: 8 }} /> : <Puzzle size={22} />}{hit.title}</span>}
-      subtitle={d ? `von ${d.author || hit.author} · ${fmtNumber(d.downloads)} Downloads${d.license ? ` · Lizenz ${d.license}` : ''} · aktualisiert ${ago(d.updated)}` : hit.description}
+      subtitle={d ? [T('by {name}', { name: d.author || hit.author }), T('{n} downloads', { n: fmtNumber(d.downloads) }), d.license ? T('License {name}', { name: d.license }) : null, T('updated {when}', { when: ago(d.updated) })].filter(Boolean).join(' · ') : hit.description}
       footer={d && (
         <div className="row grow" style={{ gap: 8, flexWrap: 'wrap' }}>
-          {d.installed && <span className="badge ok"><CheckCircle2 size={12} /> installiert{d.installed.version ? ` (${d.installed.version})` : ''}</span>}
+          {d.installed && <span className="badge ok"><CheckCircle2 size={12} /> installed{d.installed.version ? ` (${d.installed.version})` : ''}</span>}
           <div className="grow" />
           {d.versions.length > 0 ? <>
             <select className="input" style={{ width: 'auto', maxWidth: 320 }} value={ver} onChange={(e) => setVer(e.target.value)}>
-              {d.versions.map((x) => <option key={x.id} value={x.id}>{x.number}{x.type !== 'release' ? ` (${x.channel || x.type})` : ''}{x.id === d.recommended ? ' – empfohlen' : ''}{!x.fits ? ' – nicht für ' + (d.serverVersion || 'diese Version') : ''}</option>)}
+              {d.versions.map((x) => <option key={x.id} value={x.id}>{x.number}{x.type !== 'release' ? ` (${x.channel || x.type})` : ''}{x.id === d.recommended ? ' – recommended' : ''}{!x.fits ? T(' – not for ') + (d.serverVersion || T('this version')) : ''}</option>)}
             </select>
-            <Btn className="primary" icon={Download} busy={busy} disabled={!ver} onClick={install}>{d.installed ? 'Diese Version installieren' : 'Installieren'}</Btn>
-          </> : <span className="small muted">Keine Version für diesen Servertyp verfügbar.</span>}
+            <Btn className="primary" icon={Download} busy={busy} disabled={!ver} onClick={install}>{d.installed ? 'Install this version' : 'Install'}</Btn>
+          </> : <span className="small muted">No version available for this server type.</span>}
         </div>
       )}>
       {!d ? <Loading /> : (
         <div className="stack" style={{ gap: 12 }}>
-          {d.compat && d.compat.known && d.compat.status === 'too-new' && <Callout kind="warn" title={`Nur bis Minecraft ${d.compat.max}`}>{d.title} unterstützt Minecraft {d.compat.min} bis {d.compat.max}, dein Server läuft mit {d.compat.serverVersion}. Es kann trotzdem laufen – oft aber erst mit einem Update des Plugins.</Callout>}
-          {d.compat && d.compat.known && d.compat.status === 'other' && <Callout kind="warn" title={`Nicht für Minecraft ${d.compat.serverVersion} angegeben`}>Unterstützte Versionen: {d.compat.min} bis {d.compat.max}.</Callout>}
-          {d.compat && d.compat.known && d.compat.status === 'ok' && <div className="small muted">{`Unterstützt Minecraft ${d.compat.min === d.compat.max ? d.compat.min : `${d.compat.min} bis ${d.compat.max}`} – passt zu deinem Server.`}</div>}
-          {v && !v.fits && <Callout kind="warn">Version {v.number} ist nicht ausdrücklich für {d.serverVersion} freigegeben – kann trotzdem laufen.</Callout>}
-          {v && v.external && <InfoTip>Diese Version wird über die Seite des Herstellers geladen. Hostwerk prüft, ob wirklich eine Plugin-JAR ankommt.</InfoTip>}
+          {d.compat && d.compat.known && d.compat.status === 'too-new' && <Callout kind="warn" title={`Only up to Minecraft ${d.compat.max}`}>{d.title} supports Minecraft {d.compat.min} until {d.compat.max}, your server runs {d.compat.serverVersion}. It may still work – but often only after an update of the plugin.</Callout>}
+          {d.compat && d.compat.known && d.compat.status === 'other' && <Callout kind="warn" title={`Not listed for Minecraft ${d.compat.serverVersion}`}>Supported versions: {d.compat.min} until {d.compat.max}.</Callout>}
+          {d.compat && d.compat.known && d.compat.status === 'ok' && <div className="small muted">{`Supports Minecraft ${d.compat.min === d.compat.max ? d.compat.min : `${d.compat.min}–${d.compat.max}`} – fits your server.`}</div>}
+          {v && !v.fits && <Callout kind="warn">Version {v.number} is not explicitly released for {d.serverVersion} – it may still work.</Callout>}
+          {v && v.external && <InfoTip>This version is downloaded from the developer’s site. Hostwerk checks that a plugin JAR really arrives.</InfoTip>}
           <Tabs value={tab} onChange={setTab} tabs={[
-            { id: 'about', label: 'Beschreibung', icon: FileText },
-            { id: 'versions', label: 'Versionen', icon: ListOrdered, badge: d.versions.length },
-            ...(d.gallery.length ? [{ id: 'gallery', label: 'Bilder', icon: ImageIcon, badge: d.gallery.length }] : []),
+            { id: 'about', label: 'Description', icon: FileText },
+            { id: 'versions', label: 'Versions', icon: ListOrdered, badge: d.versions.length },
+            ...(d.gallery.length ? [{ id: 'gallery', label: T('Images'), icon: ImageIcon, badge: d.gallery.length }] : []),
             { id: 'links', label: 'Links', icon: Link2 },
           ]} />
           {tab === 'about' && <div style={{ maxHeight: '52vh', overflow: 'auto' }}>{d.body ? <Markdown text={d.body} /> : <p className="muted">{d.description}</p>}</div>}
@@ -74,7 +75,7 @@ function Detail({ s, hit, onClose, onInstalled }) {
               {d.versions.map((x) => (
                 <div key={x.id} className="list-item" style={{ alignItems: 'flex-start', cursor: 'pointer', background: x.id === ver ? 'var(--accent-soft)' : undefined }} onClick={() => setVer(x.id)}>
                   <div className="grow" style={{ minWidth: 0 }}>
-                    <div className="row-tight" style={{ gap: 6, flexWrap: 'wrap' }}><b>{x.number}</b>{x.type !== 'release' && <span className="badge warn">{x.channel || x.type}</span>}{x.fits ? <span className="badge ok">passt zu {d.serverVersion || 'deinem Server'}</span> : <span className="badge">nicht für {d.serverVersion}</span>}{x.id === d.recommended && <span className="badge accent">empfohlen</span>}</div>
+                    <div className="row-tight" style={{ gap: 6, flexWrap: 'wrap' }}><b>{x.number}</b>{x.type !== 'release' && <span className="badge warn">{x.channel || x.type}</span>}{x.fits ? <span className="badge ok">fits {d.serverVersion || 'your server'}</span> : <span className="badge">not for {d.serverVersion}</span>}{x.id === d.recommended && <span className="badge accent">recommended</span>}</div>
                     <div className="tiny muted">{fmtDate(x.date)}{x.downloads != null ? ` · ${fmtNumber(x.downloads)} Downloads` : ''} · Minecraft {x.gameVersions.length > 6 ? `${x.gameVersions[x.gameVersions.length - 1]} … ${x.gameVersions[0]}` : x.gameVersions.join(', ')}</div>
                     {x.changelog && <div className="small" style={{ marginTop: 6, maxHeight: 140, overflow: 'auto' }}><Markdown text={x.changelog} maxBlocks={30} /></div>}
                   </div>
@@ -115,41 +116,41 @@ export default function MarketTab({ s, onInstalled }) {
     if (my === seq.current) setLoading(false);
   };
   useEffect(() => { load(0); }, [s.id, query, source, category, sort]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!s.pluginsSupported) return <Empty icon={Puzzle} title="Vanilla unterstützt keine Plugins" text="Wechsle unter „Version“ auf Paper oder Purpur, um Plugins zu nutzen – deine Welt bleibt erhalten." />;
+  if (!s.pluginsSupported) return <Empty icon={Puzzle} title="Vanilla doesn't support plugins" text="Switch to Paper or Purpur under “Version” to use plugins – your world is kept." />;
   const cats = data ? data.categories.filter((c) => source === 'all' || c.sources.includes(source)) : [];
   return (
     <div className="market">
       <aside className="market-side card">
         <div className="card-body stack" style={{ gap: 14 }}>
           <div>
-            <div className="tiny muted bold" style={{ marginBottom: 6 }}>QUELLE</div>
-            <Seg value={source} onChange={(v) => { setSource(v); setCategory(''); }} options={[{ id: 'all', label: 'Alle' }, { id: 'modrinth', label: 'Modrinth' }, ...(!data || data.hangar ? [{ id: 'hangar', label: 'Hangar' }] : [])]} />
+            <div className="tiny muted bold" style={{ marginBottom: 6 }}>SOURCE</div>
+            <Seg value={source} onChange={(v) => { setSource(v); setCategory(''); }} options={[{ id: 'all', label: 'All' }, { id: 'modrinth', label: 'Modrinth' }, ...(!data || data.hangar ? [{ id: 'hangar', label: 'Hangar' }] : [])]} />
           </div>
           <div>
-            <div className="tiny muted bold" style={{ marginBottom: 6 }}>KATEGORIE</div>
+            <div className="tiny muted bold" style={{ marginBottom: 6 }}>CATEGORY</div>
             <div className="market-cats">
-              <button className={!category ? 'active' : ''} onClick={() => setCategory('')}>Alle Kategorien</button>
+              <button className={!category ? 'active' : ''} onClick={() => setCategory('')}>All categories</button>
               {cats.map((c) => <button key={c.id} className={category === c.id ? 'active' : ''} onClick={() => setCategory(c.id)}>{c.label}</button>)}
             </div>
           </div>
           {s.content === 'mods'
-            ? <div className="tiny muted">Gezeigt werden nur Mods für <b>{s.typeLabel} {s.version}</b>, die auf einem Server laufen. Modrinth ist die offizielle, geprüfte Mod-Seite der Community.</div>
-            : <div className="tiny muted">Gezeigt werden nur Plugins für <b>{s.typeLabel} {s.version}</b>. Modrinth und Hangar sind die offiziellen, geprüften Plugin-Seiten der Community.</div>}
+            ? <div className="tiny muted">Only showing mods for <b>{s.typeLabel} {s.version}</b>that run on a server. Modrinth is the community’s official, reviewed mod site.</div>
+            : <div className="tiny muted">Only showing plugins for <b>{s.typeLabel} {s.version}</b>. Modrinth and Hangar are the community’s official, vetted plugin sites.</div>}
         </div>
       </aside>
       <div className="stack" style={{ minWidth: 0 }}>
         <form className="row" style={{ gap: 8, flexWrap: 'wrap' }} onSubmit={(e) => { e.preventDefault(); setQuery(q.trim()); if (q.trim() && sort === 'downloads') setSort('relevance'); }}>
-          <div className="input-icon grow" style={{ minWidth: 220 }}><Search /><input className="input" placeholder={s.content === 'mods' ? 'Mods suchen – z. B. Create, Lithium, Terralith …' : 'Plugins suchen – z. B. LuckPerms, WorldEdit, Shop …'} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          <div className="input-icon grow" style={{ minWidth: 220 }}><Search /><input className="input" placeholder={s.content === 'mods' ? 'Search mods – e.g. Create, Lithium, Terralith …' : 'Search plugins – e.g. LuckPerms, WorldEdit, shop …'} value={q} onChange={(e) => setQ(e.target.value)} /></div>
           <select className="input" style={{ width: 'auto' }} value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="relevance">Beste Treffer</option>
-            <option value="downloads">Meiste Downloads</option>
-            <option value="updated">Zuletzt aktualisiert</option>
-            <option value="newest">Neueste</option>
+            <option value="relevance">Best match</option>
+            <option value="downloads">Most downloads</option>
+            <option value="updated">Recently updated</option>
+            <option value="newest">Latest</option>
           </select>
-          <Btn className="primary" busy={loading && page === 0} onClick={() => { setQuery(q.trim()); }}>Suchen</Btn>
+          <Btn className="primary" busy={loading && page === 0} onClick={() => { setQuery(q.trim()); }}>Search</Btn>
         </form>
-        {data && data.errors.length > 0 && <Callout kind="warn">Eine Quelle antwortet gerade nicht: {data.errors[0]}</Callout>}
-        {!data ? <Loading /> : data.hits.length === 0 ? <Empty icon={Store} title="Nichts gefunden" text="Andere Suchbegriffe, Kategorie oder Quelle versuchen." /> : (
+        {data && data.errors.length > 0 && <Callout kind="warn">A source is not responding right now: {data.errors[0]}</Callout>}
+        {!data ? <Loading /> : data.hits.length === 0 ? <Empty icon={Store} title="Nothing found" text="Try other search terms, category or source." /> : (
           <>
             <div className="market-grid">
               {data.hits.map((h) => (
@@ -158,9 +159,9 @@ export default function MarketTab({ s, onInstalled }) {
                     <LazyImg src={h.icon} className="ph" fallback={<div className="ph"><Puzzle size={20} /></div>} />
                     <div className="grow" style={{ minWidth: 0, textAlign: 'left' }}>
                       <div className="bold ellipsis">{h.title}</div>
-                      <div className="tiny muted ellipsis">von {h.author}</div>
+                      <div className="tiny muted ellipsis">of {h.author}</div>
                     </div>
-                    {h.installed && <span className="badge ok" title={h.installed.file}><CheckCircle2 size={11} /> installiert</span>}
+                    {h.installed && <span className="badge ok" title={h.installed.file}><CheckCircle2 size={11} /> installed</span>}
                   </div>
                   <div className="small muted market-desc">{h.description}</div>
                   <div className="row-tight tiny muted" style={{ gap: 10, flexWrap: 'wrap' }}>
@@ -173,7 +174,7 @@ export default function MarketTab({ s, onInstalled }) {
                 </button>
               ))}
             </div>
-            {data.more && <div style={{ textAlign: 'center' }}><Btn busy={loading && page > 0} onClick={() => load(page + 1)}>Mehr laden</Btn></div>}
+            {data.more && <div style={{ textAlign: 'center' }}><Btn busy={loading && page > 0} onClick={() => load(page + 1)}>Load more</Btn></div>}
           </>
         )}
       </div>

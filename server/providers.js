@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { fetchJson, cached, downloadFile, jobProgress, cmpVersion } = require('./hw').core('download');
+const T = (text, vars) => require('./hw').t(text, vars); // Text in der Sprache der Oberfläche (Deutsch aus locales/de.json)
 
 const MANIFEST = 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json';
 const PAPER = 'https://fill.papermc.io/v3/projects/paper';
@@ -55,13 +56,13 @@ function runInstaller(javaExe, installer, dir, job, label) {
       for (const l of c.toString('utf8').split(/\r?\n/)) {
         if (!l.trim()) continue;
         if (++lines % 20 === 0 || /error|exception/i.test(l)) job.log(l.slice(0, 300));
-        if (lines % 40 === 0) job.progress(Math.min(94, 55 + lines / 30), `${label} wird eingerichtet …`);
+        if (lines % 40 === 0) job.progress(Math.min(94, 55 + lines / 30), T('Setting up {label} …', { label }));
       }
     };
     p.stdout.on('data', onData);
     p.stderr.on('data', onData);
     p.on('error', reject);
-    p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${label}-Installer ist fehlgeschlagen (Code ${code}) – Details im Protokoll.`))));
+    p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(T('{label} installer failed (code {code}) – see the log for details.', { label, code })))));
   });
 }
 /** Nach dem Installer: Start über das Argumente-File (ab Minecraft 1.17) oder eine erzeugte Server-JAR (ältere). */
@@ -70,18 +71,18 @@ function installedLaunch(dir, argsDir, jarPattern) {
   if (fs.existsSync(path.join(dir, args))) return { launch: { argsFile: args.split(path.sep).join('/') } };
   const jar = fs.readdirSync(dir).find((f) => jarPattern.test(f) && !/installer/i.test(f));
   if (jar) return { jar };
-  throw new Error('Der Installer hat keine Startdatei angelegt.');
+  throw new Error(T('The installer didn’t create a start file.'));
 }
 /** Passende Mod-Version von Modrinth in mods/ legen (z. B. Fabric API). */
 async function modrinthMod(project, loader, mcVersion, dir, job) {
   try {
     const q = `loaders=${encodeURIComponent(JSON.stringify([loader]))}&game_versions=${encodeURIComponent(JSON.stringify([mcVersion]))}`;
     const v = (await fetchJson(`${MODRINTH}/project/${project}/version?${q}`))[0];
-    if (!v) { job.log(`Kein passender Download für ${project} (${mcVersion}) – übersprungen.`); return; }
+    if (!v) { job.log(T('No matching download for {project} ({mcVersion}) – skipped.', { project, mcVersion })); return; }
     const f = v.files.find((x) => x.primary) || v.files[0];
     fs.mkdirSync(path.join(dir, 'mods'), { recursive: true });
     await downloadFile(f.url, path.join(dir, 'mods', path.basename(f.filename)), { sha1: f.hashes && f.hashes.sha1 });
-    job.log(`${v.name} in mods/ gelegt.`);
+    job.log(T('{name} put into mods/.', { name: v.name }));
   } catch (e) { job.log(`${project}: ${e.message}`); }
 }
 /** NeoForge-Version → Minecraft-Version (21.1.x → 1.21.1, 21.0.x → 1.21, 26.1.x → 26.1). */
@@ -111,10 +112,10 @@ async function mcjarsVersions(type) {
 async function mcjarsDownload(type, version, dest, job, label) {
   const x = (await mcjarsAll(type))[version];
   const l = x && x.latest;
-  if (!l || !l.jarUrl) throw new Error(`${label} ${version} gibt es auch bei MCJars nicht.`);
-  job.log(`${label} ${version} ${l.name || ''} über MCJars`);
-  await downloadFile(l.jarUrl, dest, { onProgress: jobProgress(job, `${label} ${version} herunterladen`, 40, 90) });
-  if (l.jarSize && fs.statSync(dest).size !== l.jarSize) { fs.rmSync(dest, { force: true }); throw new Error('Download unvollständig (Größe stimmt nicht).'); }
+  if (!l || !l.jarUrl) throw new Error(T('{label} {version} doesn\'t exist at MCJars either.', { label, version }));
+  job.log(T('{label} {version} {v3} via MCJars', { label, version, v3: l.name || '' }));
+  await downloadFile(l.jarUrl, dest, { onProgress: jobProgress(job, T('Download {label} {version}', { label, version }), 40, 90) });
+  if (l.jarSize && fs.statSync(dest).size !== l.jarSize) { fs.rmSync(dest, { force: true }); throw new Error(T('Download incomplete (size doesn\'t match).')); }
   return { build: String(l.buildNumber || l.name || '') };
 }
 /** Fehler, die keine Quelle beheben kann (z. B. die Version gibt es wirklich nicht). */
@@ -124,7 +125,7 @@ const providers = {
   vanilla: {
     label: 'Vanilla',
     homepage: 'https://www.minecraft.net/download/server',
-    description: 'Der offizielle Server von Mojang – ohne Plugins.',
+    description: 'The official server from Mojang – without plugins.',
     plugins: false,
     async versions() {
       const m = await manifest();
@@ -137,10 +138,10 @@ const providers = {
     async download(version, dest, job) {
       const m = await manifest();
       const v = m.versions.find((x) => x.id === version);
-      if (!v) throw new Error('Unbekannte Vanilla-Version ' + version);
+      if (!v) throw new Error(T('Unknown Vanilla version {version}', { version }));
       const info = await fetchJson(v.url);
-      if (!info.downloads || !info.downloads.server) throw new Error(`Für ${version} gibt es keinen offiziellen Server-Download.`);
-      await downloadFile(info.downloads.server.url, dest, { sha1: info.downloads.server.sha1, onProgress: jobProgress(job, `Vanilla ${version} herunterladen`, 40, 95) });
+      if (!info.downloads || !info.downloads.server) throw new Error(T('There is no official server download for {version}.', { version }));
+      await downloadFile(info.downloads.server.url, dest, { sha1: info.downloads.server.sha1, onProgress: jobProgress(job, T('Download Vanilla {version}', { version }), 40, 95) });
       return { build: null };
     },
   },
@@ -148,7 +149,7 @@ const providers = {
   paper: {
     label: 'Paper',
     homepage: 'https://papermc.io/downloads/paper',
-    description: 'Schneller, optimierter Server mit Plugin-Unterstützung (Bukkit/Spigot/Paper).',
+    description: 'Fast, optimized server with plugin support (Bukkit/Spigot/Paper).',
     plugins: true,
     loaders: ['paper', 'spigot', 'bukkit'],
     async versions() {
@@ -163,9 +164,9 @@ const providers = {
     async download(version, dest, job) {
       const b = await fetchJson(`${PAPER}/versions/${encodeURIComponent(version)}/builds/latest`);
       const d = b.downloads && b.downloads['server:default'];
-      if (!d) throw new Error(`Kein Paper-Build für ${version} gefunden.`);
+      if (!d) throw new Error(T('No Paper build found for {version}.', { version }));
       job.log(`Paper ${version} Build #${b.id} (${b.channel})`);
-      await downloadFile(d.url, dest, { sha256: d.checksums && d.checksums.sha256, onProgress: jobProgress(job, `Paper ${version} herunterladen`, 40, 95) });
+      await downloadFile(d.url, dest, { sha256: d.checksums && d.checksums.sha256, onProgress: jobProgress(job, T('Download Paper {version}', { version }), 40, 95) });
       return { build: String(b.id) };
     },
   },
@@ -173,7 +174,7 @@ const providers = {
   purpur: {
     label: 'Purpur',
     homepage: 'https://purpurmc.org/',
-    description: 'Paper-Fork mit vielen zusätzlichen Einstellungen und Gameplay-Optionen.',
+    description: 'Paper fork with many extra settings and gameplay options.',
     plugins: true,
     loaders: ['purpur', 'paper', 'spigot', 'bukkit'],
     async versions() {
@@ -187,11 +188,11 @@ const providers = {
     async download(version, dest, job) {
       const info = await fetchJson(`${PURPUR}/${encodeURIComponent(version)}`);
       const build = info.builds && info.builds.latest;
-      if (!build) throw new Error(`Kein Purpur-Build für ${version}.`);
+      if (!build) throw new Error(T('No Purpur build for {version}.', { version }));
       let md5;
       try { md5 = (await fetchJson(`${PURPUR}/${encodeURIComponent(version)}/${build}`)).md5; } catch {}
       job.log(`Purpur ${version} Build #${build}${md5 ? ' (md5 ' + md5 + ')' : ''}`);
-      await downloadFile(`${PURPUR}/${encodeURIComponent(version)}/${build}/download`, dest, { onProgress: jobProgress(job, `Purpur ${version} herunterladen`, 40, 95) });
+      await downloadFile(`${PURPUR}/${encodeURIComponent(version)}/${build}/download`, dest, { onProgress: jobProgress(job, T('Download Purpur {version}', { version }), 40, 95) });
       return { build: String(build) };
     },
   },
@@ -199,7 +200,7 @@ const providers = {
   spigot: {
     label: 'Spigot',
     homepage: 'https://www.spigotmc.org/wiki/buildtools/',
-    description: 'Der klassische Plugin-Server. Wird mit BuildTools lokal gebaut (dauert einige Minuten).',
+    description: 'The classic plugin server. Built locally with BuildTools (takes a few minutes).',
     plugins: true,
     loaders: ['spigot', 'bukkit'],
     async versions() {
@@ -211,12 +212,12 @@ const providers = {
       const btDir = path.join(ctx.paths.cache, 'buildtools');
       fs.mkdirSync(btDir, { recursive: true });
       const bt = path.join(btDir, 'BuildTools.jar');
-      job.status('BuildTools herunterladen …');
-      await downloadFile(BUILDTOOLS, bt, { onProgress: jobProgress(job, 'BuildTools herunterladen', 35, 40) });
+      job.status(T('Downloading BuildTools …'));
+      await downloadFile(BUILDTOOLS, bt, { onProgress: jobProgress(job, T('Download BuildTools'), 35, 40) });
       const out = path.join(btDir, 'out');
       fs.rmSync(out, { recursive: true, force: true });
       fs.mkdirSync(out, { recursive: true });
-      job.progress(42, `Spigot ${version} wird gebaut – das dauert einige Minuten …`);
+      job.progress(42, T('Building Spigot {version} – this takes a few minutes …', { version }));
       await new Promise((resolve, reject) => {
         const p = spawn(ctx.javaExe, ['-jar', bt, '--rev', version, '--compile', 'spigot', '--output-dir', out], { cwd: btDir, windowsHide: true });
         let lines = 0;
@@ -226,16 +227,16 @@ const providers = {
             job.log(l);
             lines++;
             // Grobe Fortschrittsschätzung anhand der Ausgabemenge
-            if (lines % 25 === 0) job.progress(Math.min(94, 42 + lines / 40), `Spigot ${version} wird gebaut …`);
+            if (lines % 25 === 0) job.progress(Math.min(94, 42 + lines / 40), T('Building Spigot {version} …', { version }));
           }
         };
         p.stdout.on('data', onData);
         p.stderr.on('data', onData);
         p.on('error', reject);
-        p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`BuildTools ist fehlgeschlagen (Code ${code}). Gibt es Spigot ${version} schon? Details im Protokoll.`))));
+        p.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(T('BuildTools failed (code {code}). Does Spigot {version} exist yet? Details in the log.', { code, version })))));
       });
       const jar = fs.readdirSync(out).find((f) => /^spigot-.*\.jar$/i.test(f));
-      if (!jar) throw new Error('BuildTools hat keine spigot-*.jar erzeugt.');
+      if (!jar) throw new Error(T('BuildTools did not create a spigot-*.jar.'));
       fs.rmSync(dest, { force: true });
       fs.renameSync(path.join(out, jar), dest);
       return { build: null };
@@ -245,7 +246,7 @@ const providers = {
   folia: {
     label: 'Folia',
     homepage: 'https://papermc.io/software/folia',
-    description: 'Paper für sehr viele Spieler: verteilt die Welt auf alle Prozessorkerne. Nur Folia-taugliche Plugins.',
+    description: 'Paper for very many players: spreads the world across all CPU cores. Folia-compatible plugins only.',
     plugins: true,
     loaders: ['folia'],
     async versions() {
@@ -260,9 +261,9 @@ const providers = {
     async download(version, dest, job) {
       const b = await fetchJson(`${FOLIA}/versions/${encodeURIComponent(version)}/builds/latest`);
       const d = b.downloads && b.downloads['server:default'];
-      if (!d) throw new Error(`Kein Folia-Build für ${version} gefunden.`);
+      if (!d) throw new Error(T('No Folia build found for {version}.', { version }));
       job.log(`Folia ${version} Build #${b.id} (${b.channel})`);
-      await downloadFile(d.url, dest, { sha256: d.checksums && d.checksums.sha256, onProgress: jobProgress(job, `Folia ${version} herunterladen`, 40, 95) });
+      await downloadFile(d.url, dest, { sha256: d.checksums && d.checksums.sha256, onProgress: jobProgress(job, T('Download Folia {version}', { version }), 40, 95) });
       return { build: String(b.id) };
     },
   },
@@ -270,7 +271,7 @@ const providers = {
   fabric: {
     label: 'Fabric',
     homepage: 'https://fabricmc.net/use/server/',
-    description: 'Leichter Mod-Server: Fabric-Mods (Leistung, Technik, Abenteuer) von Modrinth – Fabric API kommt gleich mit.',
+    description: 'Lightweight mod server: Fabric mods (performance, tech, adventure) from Modrinth – Fabric API included.',
     plugins: true,
     content: 'mods',
     loaders: ['fabric'],
@@ -281,13 +282,13 @@ const providers = {
     },
     async download(version, dest, job, ctx = {}) {
       const loaders = await fetchJson(`${FABRIC}/versions/loader/${encodeURIComponent(version)}`);
-      if (!loaders.length) throw new Error(`Fabric unterstützt Minecraft ${version} (noch) nicht.`);
+      if (!loaders.length) throw new Error(T('Fabric doesn’t support Minecraft {version} (yet).', { version }));
       const loader = ctx.loaderVersion || (loaders.find((l) => l.loader.stable) || loaders[0]).loader.version;
       const installers = await cached('fabric-installers', TTL, () => fetchJson(`${FABRIC}/versions/installer`));
       const inst = (installers.find((i) => i.stable) || installers[0]).version;
-      job.log(`Fabric Loader ${loader} (Installer ${inst}) für Minecraft ${version}`);
-      await downloadFile(`${FABRIC}/versions/loader/${encodeURIComponent(version)}/${encodeURIComponent(loader)}/${encodeURIComponent(inst)}/server/jar`, dest, { onProgress: jobProgress(job, `Fabric ${version} herunterladen`, 40, 80) });
-      if (!ctx.noExtras) { job.progress(85, 'Fabric API herunterladen …'); await modrinthMod('P7dR8mSH', 'fabric', version, path.dirname(dest), job); }
+      job.log(T('Fabric Loader {loader} (installer {inst}) for Minecraft {version}', { loader, inst, version }));
+      await downloadFile(`${FABRIC}/versions/loader/${encodeURIComponent(version)}/${encodeURIComponent(loader)}/${encodeURIComponent(inst)}/server/jar`, dest, { onProgress: jobProgress(job, T('Download Fabric {version}', { version }), 40, 80) });
+      if (!ctx.noExtras) { job.progress(85, T('Downloading Fabric API …')); await modrinthMod('P7dR8mSH', 'fabric', version, path.dirname(dest), job); }
       return { build: loader };
     },
   },
@@ -295,7 +296,7 @@ const providers = {
   neoforge: {
     label: 'NeoForge',
     homepage: 'https://neoforged.net/',
-    description: 'Mod-Server für große Mods und Modpacks (Create, Mekanism …) – der moderne Forge-Nachfolger.',
+    description: 'Mod server for big mods and modpacks (Create, Mekanism …) – the modern successor to Forge.',
     plugins: true,
     content: 'mods',
     loaders: ['neoforge'],
@@ -316,12 +317,12 @@ const providers = {
     },
     async download(version, dest, job, ctx = {}) {
       let nv = ctx.loaderVersion;
-      if (!nv) { const v = (await this.versions()).versions.find((x) => x.id === version); if (!v) throw new Error(`NeoForge gibt es für Minecraft ${version} nicht.`); nv = v.loader; }
+      if (!nv) { const v = (await this.versions()).versions.find((x) => x.id === version); if (!v) throw new Error(T('NeoForge isn’t available for Minecraft {version}.', { version })); nv = v.loader; }
       const dir = path.dirname(dest);
       const installer = path.join(dir, `neoforge-${nv}-installer.jar`);
-      job.log(`NeoForge ${nv} für Minecraft ${version}`);
-      await downloadFile(`${NEOFORGE}/releases/net/neoforged/neoforge/${nv}/neoforge-${nv}-installer.jar`, installer, { onProgress: jobProgress(job, `NeoForge ${nv} herunterladen`, 40, 52) });
-      job.progress(55, 'NeoForge einrichten (lädt Bibliotheken, dauert 1–3 Minuten) …');
+      job.log(T('NeoForge {nv} for Minecraft {version}', { nv, version }));
+      await downloadFile(`${NEOFORGE}/releases/net/neoforged/neoforge/${nv}/neoforge-${nv}-installer.jar`, installer, { onProgress: jobProgress(job, T('Download NeoForge {nv}', { nv }), 40, 52) });
+      job.progress(55, T('Setting up NeoForge (downloads libraries, takes 1–3 minutes) …'));
       await runInstaller(ctx.javaExe, installer, dir, job, 'NeoForge');
       for (const f of [installer, installer + '.log', path.join(dir, 'installer.log')]) fs.rmSync(f, { force: true });
       return { build: nv, ...installedLaunch(dir, path.join('libraries', 'net', 'neoforged', 'neoforge', nv), /^neoforge-.*\.jar$/i) };
@@ -331,7 +332,7 @@ const providers = {
   forge: {
     label: 'Forge',
     homepage: 'https://files.minecraftforge.net/',
-    description: 'Der klassische Mod-Server – für ältere Modpacks und Mods, die es nur für Forge gibt.',
+    description: 'The classic mod server – for older modpacks and mods that only exist for Forge.',
     plugins: true,
     content: 'mods',
     loaders: ['forge'],
@@ -345,13 +346,13 @@ const providers = {
     async download(version, dest, job, ctx = {}) {
       const p = await this.promos();
       const fv = ctx.loaderVersion || p[`${version}-recommended`] || p[`${version}-latest`];
-      if (!fv) throw new Error(`Forge gibt es für Minecraft ${version} nicht.`);
+      if (!fv) throw new Error(T('Forge isn’t available for Minecraft {version}.', { version }));
       const dir = path.dirname(dest);
       const full = `${version}-${fv}`;
       const installer = path.join(dir, `forge-${full}-installer.jar`);
-      job.log(`Forge ${fv} für Minecraft ${version}`);
-      await downloadFile(`${FORGE}/${full}/forge-${full}-installer.jar`, installer, { onProgress: jobProgress(job, `Forge ${fv} herunterladen`, 40, 52) });
-      job.progress(55, 'Forge einrichten (lädt Bibliotheken, dauert 1–3 Minuten) …');
+      job.log(T('Forge {fv} for Minecraft {version}', { fv, version }));
+      await downloadFile(`${FORGE}/${full}/forge-${full}-installer.jar`, installer, { onProgress: jobProgress(job, T('Download Forge {fv}', { fv }), 40, 52) });
+      job.progress(55, T('Setting up Forge (downloads libraries, takes 1–3 minutes) …'));
       await runInstaller(ctx.javaExe, installer, dir, job, 'Forge');
       for (const f of [installer, installer + '.log', path.join(dir, 'installer.log')]) fs.rmSync(f, { force: true });
       return { build: fv, ...installedLaunch(dir, path.join('libraries', 'net', 'minecraftforge', 'forge', full), /^forge-.*\.jar$/i) };
@@ -361,7 +362,7 @@ const providers = {
   velocity: {
     label: 'Velocity',
     homepage: 'https://papermc.io/software/velocity',
-    description: 'Proxy fürs Netzwerk: verbindet mehrere Server (Lobby, Survival, Minispiele) – Spieler wechseln mit /server.',
+    description: 'Network proxy: connects several servers (lobby, survival, minigames) – players switch with /server.',
     plugins: true,
     proxy: true,
     loaders: ['velocity'],
@@ -379,9 +380,9 @@ const providers = {
     async download(version, dest, job) {
       const b = await fetchJson(`${VELOCITY}/versions/${encodeURIComponent(version)}/builds/latest`);
       const d = b.downloads && b.downloads['server:default'];
-      if (!d) throw new Error(`Kein Velocity-Build für ${version} gefunden.`);
+      if (!d) throw new Error(T('No Velocity build found for {version}.', { version }));
       job.log(`Velocity ${version} Build #${b.id} (${b.channel})`);
-      await downloadFile(d.url, dest, { sha256: d.checksums && d.checksums.sha256, onProgress: jobProgress(job, `Velocity ${version} herunterladen`, 40, 95) });
+      await downloadFile(d.url, dest, { sha256: d.checksums && d.checksums.sha256, onProgress: jobProgress(job, T('Download Velocity {version}', { version }), 40, 95) });
       return { build: String(b.id) };
     },
   },
@@ -389,7 +390,7 @@ const providers = {
   modpack: {
     label: 'Modpack',
     homepage: 'https://modrinth.com/modpacks',
-    description: 'Fertiges Modpack von Modrinth mit einem Klick – Loader und alle Server-Mods inklusive.',
+    description: 'A ready-made Modrinth modpack in one click – loader and all server mods included.',
     plugins: true,
     content: 'mods',
     loaders: ['fabric', 'neoforge', 'forge'],
@@ -400,8 +401,8 @@ const providers = {
   bedrock: require('./bedrock').provider,
 
   custom: {
-    label: 'Eigene JAR',
-    description: 'Eine beliebige Server-JAR (z. B. Quilt, Mohist oder ein eigener Build).',
+    label: 'Custom JAR',
+    description: 'Any server JAR (e.g. Quilt, Mohist or your own build).',
     plugins: true,
     loaders: ['paper', 'spigot', 'bukkit'],
     async versions() { return { latest: null, versions: [] }; },
@@ -436,11 +437,11 @@ function caps(type) {
 }
 const TYPE_ID = /^[a-z][a-z0-9-]{1,23}$/;
 function registerType(id, def, owner = null) {
-  if (!TYPE_ID.test(String(id))) throw new Error(`registerType: ungültige Typ-Kennung ${id}`);
-  if (BUILTIN.has(id)) throw new Error(`registerType: ${id} ist ein eingebauter Typ`);
-  if (!def || typeof def.label !== 'string' || typeof def.versions !== 'function' || typeof def.download !== 'function') throw new Error('registerType: label, versions() und download() sind Pflicht');
-  for (const k of ['launchArgs', 'beforeStart', 'latestBuild', 'java']) if (def[k] !== undefined && typeof def[k] !== 'function') throw new Error(`registerType: ${k} muss eine Funktion sein`);
-  if (def.readyRe !== undefined && !(def.readyRe instanceof RegExp)) throw new Error('registerType: readyRe muss ein regulärer Ausdruck sein');
+  if (!TYPE_ID.test(String(id))) throw new Error(T('registerType: invalid type id {id}', { id }));
+  if (BUILTIN.has(id)) throw new Error(T('registerType: {id} is a built-in type', { id }));
+  if (!def || typeof def.label !== 'string' || typeof def.versions !== 'function' || typeof def.download !== 'function') throw new Error(T('registerType: label, versions() and download() are required'));
+  for (const k of ['launchArgs', 'beforeStart', 'latestBuild', 'java']) if (def[k] !== undefined && typeof def[k] !== 'function') throw new Error(T('registerType: {k} has to be a function', { k }));
+  if (def.readyRe !== undefined && !(def.readyRe instanceof RegExp)) throw new Error(T('registerType: readyRe has to be a regular expression'));
   providers[id] = { plugins: true, loaders: ['paper', 'spigot', 'bukkit'], ...def, owner };
   return () => unregisterType(id, owner);
 }
@@ -466,16 +467,16 @@ async function searchModpacks(q = '', offset = 0) {
 async function modpackVersion(projectId, versionId) {
   const list = await fetchJson(`${MODRINTH}/project/${encodeURIComponent(projectId)}/version`);
   const v = (versionId && list.find((x) => x.id === versionId)) || list.find((x) => x.version_type === 'release' && x.loaders.some((l) => LOADER_DEP[l === 'fabric' ? 'fabric-loader' : l])) || list[0];
-  if (!v) throw new Error('Dieses Modpack hat keine Versionen.');
+  if (!v) throw new Error(T('This modpack has no versions.'));
   const loader = ['neoforge', 'fabric', 'forge'].find((l) => v.loaders.includes(l));
-  if (!loader) throw new Error(`Dieses Modpack nutzt ${v.loaders.join(', ')} – Hostwerk unterstützt Fabric, NeoForge und Forge.`);
+  if (!loader) throw new Error(T('This modpack uses {v1} – Hostwerk supports Fabric, NeoForge and Forge.', { v1: v.loaders.join(', ') }));
   return { id: v.id, number: v.version_number, name: v.name, mc: v.game_versions[0], loader, file: v.files.find((f) => f.primary) || v.files[0] };
 }
 /** .mrpack laden und auspacken → { v, index, tmp, cleanup } */
 async function fetchPack(projectId, versionId, job, ctx, range = [36, 40]) {
   const v = await modpackVersion(projectId, versionId);
   const pack = path.join(ctx.paths.cache, `modpack-${v.id}.mrpack`);
-  await downloadFile(v.file.url, pack, { sha1: v.file.hashes && v.file.hashes.sha1, onProgress: jobProgress(job, `Modpack ${v.number} herunterladen`, range[0], range[1]) });
+  await downloadFile(v.file.url, pack, { sha1: v.file.hashes && v.file.hashes.sha1, onProgress: jobProgress(job, T('Download modpack {number}', { number: v.number }), range[0], range[1]) });
   const { unzipTo } = require('./hw').core('util');
   const tmp = path.join(ctx.paths.cache, `modpack-${v.id}`);
   fs.rmSync(tmp, { recursive: true, force: true });
@@ -498,7 +499,7 @@ async function placeFiles(index, tmp, dir, job, range = [94, 98]) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     await downloadFile(f.downloads[0], target, { sha1: f.hashes && f.hashes.sha1 });
     loaded++;
-    if (n % 10 === 0) job.progress(Math.min(range[1], range[0] + (n / files.length) * (range[1] - range[0])), `Mods laden (${n}/${files.length}) …`);
+    if (n % 10 === 0) job.progress(Math.min(range[1], range[0] + (n / files.length) * (range[1] - range[0])), T('Downloading mods ({n}/{v2}) …', { n, v2: files.length }));
   }
   for (const o of ['overrides', 'server-overrides']) if (fs.existsSync(path.join(tmp, o))) fs.cpSync(path.join(tmp, o), dir, { recursive: true, force: true });
   return { total: files.length, loaded };
@@ -506,7 +507,7 @@ async function placeFiles(index, tmp, dir, job, range = [94, 98]) {
 function packLoader(index, fallbackMc) {
   const deps = index.dependencies || {};
   const loaderKey = Object.keys(LOADER_DEP).find((k) => deps[k]);
-  if (!loaderKey) throw new Error('Unbekannter Loader im Modpack (nur Fabric, NeoForge, Forge).');
+  if (!loaderKey) throw new Error(T('Unknown loader in the modpack (only Fabric, NeoForge, Forge).'));
   return { type: LOADER_DEP[loaderKey], loaderVersion: deps[loaderKey], mc: deps.minecraft || fallbackMc };
 }
 
@@ -519,14 +520,14 @@ async function installModpack({ projectId, versionId }, dir, job, ctx) {
     // Loader in der Version installieren, die das Modpack verlangt
     const r = await providers[L.type].download(L.mc, path.join(dir, 'server.jar'), job, { ...ctx, loaderVersion: L.loaderVersion, noExtras: true });
     const res = await placeFiles(index, tmp, dir, job);
-    job.log(`${res.loaded} Dateien aus dem Modpack geladen.`);
+    job.log(T('{loaded} files loaded from the modpack.', { loaded: res.loaded }));
     return { ...r, type: L.type, mc: L.mc, modpack: { projectId, versionId: v.id, version: v.number, name: v.name } };
   } finally { p.cleanup(); }
 }
 
 /** Neuere Versionen des Modpacks (gleicher Loader) – mit Minecraft-Version und Änderungen. */
 async function modpackUpdates(s) {
-  if (!s.modpack) throw new Error('Dieser Server wurde nicht aus einem Modpack erstellt.');
+  if (!s.modpack) throw new Error(T('This server wasn\'t created from a modpack.'));
   const list = await fetchJson(`${MODRINTH}/project/${encodeURIComponent(s.modpack.projectId)}/version`);
   const cur = list.find((x) => x.id === s.modpack.versionId);
   const since = cur ? Date.parse(cur.date_published) : 0;
@@ -541,12 +542,12 @@ async function modpackUpdates(s) {
  * installieren, neue Dateien laden, overrides übernehmen. Welt und Spielerdaten bleiben unberührt.
  */
 async function updateModpackFiles(s, dir, versionId, job, ctx) {
-  job.progress(8, 'Alte Modpack-Version lesen …');
+  job.progress(8, T('Reading old modpack version …'));
   const oldP = await fetchPack(s.modpack.projectId, s.modpack.versionId, job, ctx, [8, 15]).catch(() => null);
   const newP = await fetchPack(s.modpack.projectId, versionId, job, ctx, [15, 25]);
   try {
     const L = packLoader(newP.index, newP.v.mc);
-    if (L.type !== s.type) throw new Error(`Die neue Version nutzt ${providers[L.type].label} statt ${providers[s.type].label} – bitte als neuen Server anlegen.`);
+    if (L.type !== s.type) throw new Error(T('The new version uses {label} instead of {label2} – please create it as a new server.', { label: providers[L.type].label, label2: providers[s.type].label }));
     const keep = new Set(serverFiles(newP.index).map((f) => path.normalize(f.path)));
     let removed = 0;
     if (oldP) {
@@ -555,15 +556,15 @@ async function updateModpackFiles(s, dir, versionId, job, ctx) {
         if (keep.has(path.normalize(f.path)) || !target.startsWith(path.resolve(dir) + path.sep)) continue;
         if (fs.existsSync(target)) { fs.rmSync(target, { force: true }); removed++; }
       }
-    } else job.log('Die alte Version ist nicht mehr abrufbar – nicht mehr benötigte Mods bitte selbst prüfen.');
+    } else job.log(T('The old version can no longer be fetched – please check yourself which mods are no longer needed.'));
     let loader = null;
     if (L.loaderVersion !== s.build || L.mc !== s.version) {
-      job.progress(30, `${providers[L.type].label} ${L.loaderVersion} einrichten …`);
+      job.progress(30, T('Setting up {label} {loaderVersion} …', { label: providers[L.type].label, loaderVersion: L.loaderVersion }));
       loader = await providers[L.type].download(L.mc, path.join(dir, 'server.jar'), job, { ...ctx, loaderVersion: L.loaderVersion, noExtras: true });
     }
-    job.progress(60, 'Neue Mods laden …');
+    job.progress(60, T('Loading new mods …'));
     const res = await placeFiles(newP.index, newP.tmp, dir, job, [60, 95]);
-    job.log(`${removed} alte Datei(en) entfernt, ${res.loaded} neue bzw. geänderte geladen.`);
+    job.log(T('{removed} old file(s) removed, {loaded} new or changed ones loaded.', { removed, loaded: res.loaded }));
     return { mc: L.mc, loader, modpack: { ...s.modpack, versionId: newP.v.id, version: newP.v.number, name: newP.v.name }, removed, loaded: res.loaded };
   } finally { if (oldP) oldP.cleanup(); newP.cleanup(); }
 }
@@ -574,19 +575,19 @@ for (const [id, type] of Object.entries(MCJ_TYPE)) {
   const versions0 = p.versions.bind(p);
   const download0 = p.download.bind(p);
   p.versions = async () => {
-    try { const r = await versions0(); if (keeperNote) keeperNote(id, true, `${p.label}: Versionen von der offiziellen Quelle.`); return r; } catch (e) {
+    try { const r = await versions0(); if (keeperNote) keeperNote(id, true, T('{label}: versions from the official source.', { label: p.label })); return r; } catch (e) {
       const r = await mcjarsVersions(type);
-      if (keeperNote) keeperNote(id, true, `${p.label}: offizielle Quelle antwortet nicht (${e.message}) – Versionen kommen von MCJars.`);
+      if (keeperNote) keeperNote(id, true, T('{label}: official source does not answer ({error}) – versions come from MCJars.', { label: p.label, error: e.message }));
       return r;
     }
   };
   p.download = async (version, dest, job, ctx) => {
     try { return await download0(version, dest, job, ctx); } catch (e) {
       if (userError(e)) throw e;
-      job.log(`${p.label}: offizielle Quelle antwortet nicht (${e.message}) – lade über MCJars …`);
+      job.log(T('{label}: official source does not answer ({message}) – loading via MCJars …', { label: p.label, message: e.message }));
       const r = await mcjarsDownload(type, version, dest, job, p.label);
       if (id === 'fabric' && !(ctx && ctx.noExtras)) await modrinthMod('P7dR8mSH', 'fabric', version, path.dirname(dest), job);
-      if (keeperNote) keeperNote(id, true, `${p.label} ${version} über MCJars geladen (offizielle Quelle: ${e.message}).`);
+      if (keeperNote) keeperNote(id, true, T('{label} {version} loaded via MCJars (official source: {error}).', { label: p.label, version, error: e.message }));
       return r;
     }
   };

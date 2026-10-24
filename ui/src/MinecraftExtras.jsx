@@ -8,12 +8,12 @@ import McDimIcon, { dimLabel, dimKey, useDimInfo } from './McDimIcon';
 import { HealthSummary } from './McHealth';
 import { TaskList, TaskEditor } from '@hostwerk/kit';
 import { PlayerButtons, usePlayerLists, usePlayerContext } from './McPlayers';
-import { PlayerHead } from '@hostwerk/kit';
+import { PlayerHead, Keep } from '@hostwerk/kit';
 import { useSlot } from '@hostwerk/kit';
 import { ErrorBoundary } from '@hostwerk/kit';
 import { ExtSections, useSectionRole } from '@hostwerk/kit';
-import { pl, tr } from '@hostwerk/kit';
 import { TpsCard, WorldUploadCard, PregenCard } from './McTools';
+import { t as T, pl } from '@hostwerk/i18n';
 
 /* ------------------------------------------------------------------ Minecraft-Farbcodes */
 const MC = { 0: '#000000', 1: '#0000AA', 2: '#00AA00', 3: '#00AAAA', 4: '#AA0000', 5: '#AA00AA', 6: '#FFAA00', 7: '#AAAAAA', 8: '#555555', 9: '#5555FF', a: '#55FF55', b: '#55FFFF', c: '#FF5555', d: '#FF55FF', e: '#FFFF55', f: '#FFFFFF' };
@@ -22,7 +22,7 @@ export function McText({ text }) {
   let style = { color: '#AAAAAA' };
   let buf = '';
   const s = String(text || '').replace(/\\u00a7/gi, '§').replace(/\\n/g, '\n');
-  const flush = () => { if (buf) { parts.push(<span key={parts.length} style={{ ...style }}>{buf}</span>); buf = ''; } };
+  const flush = () => { if (buf) { parts.push(<span key={parts.length} style={{ ...style }}><Keep>{buf}</Keep></span>); buf = ''; } };
   for (let i = 0; i < s.length; i++) {
     if (s[i] === '§' && i + 1 < s.length) {
       flush();
@@ -61,7 +61,7 @@ export function IconCropper({ file, onCancel, onSave }) {
     const url = URL.createObjectURL(file);
     const i = new Image();
     i.onload = () => { setImg(i); setSmooth(!(i.width <= 64 && i.height <= 64)); }; // kleine Bilder sind meist Pixel-Art
-    i.onerror = () => toast.error('Das Bild ließ sich nicht öffnen.');
+    i.onerror = () => toast.error('The image could not be opened.');
     i.src = url;
     return () => URL.revokeObjectURL(url);
   }, [file]);
@@ -99,28 +99,28 @@ export function IconCropper({ file, onCancel, onSave }) {
     try { await onSave(c.toDataURL('image/png')); } finally { setBusy(false); }
   };
   return (
-    <Modal title="Server-Symbol zuschneiden" subtitle="Ziehen verschiebt, Mausrad oder Regler vergrößert. Minecraft zeigt das Symbol mit 64×64 Pixeln." onClose={onCancel}
-      footer={<><Btn onClick={onCancel}>Abbrechen</Btn><Btn className="primary" icon={Save} busy={busy} disabled={!img} onClick={save}>Als Symbol speichern</Btn></>}>
+    <Modal title="Crop server icon" subtitle="Drag to move, mouse wheel or slider to zoom. Minecraft shows the icon at 64×64 pixels." onClose={onCancel}
+      footer={<><Btn onClick={onCancel}>Cancel</Btn><Btn className="primary" icon={Save} busy={busy} disabled={!img} onClick={save}>Save as icon</Btn></>}>
       {!img ? <Loading /> : (
         <div className="mc-crop">
           <div className="mc-crop-stage">
             <canvas ref={view} width={CROP_VIEW} height={CROP_VIEW} className="mc-crop-canvas" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onWheel={onWheel}
-              tabIndex={0} aria-label="Ausschnitt – mit Pfeiltasten verschieben, Plus und Minus vergrößern"
+              tabIndex={0} aria-label="Crop – move with the arrow keys, zoom with plus and minus"
               onKeyDown={(e) => { const st = e.shiftKey ? 16 : 4; const k = { ArrowLeft: [-st, 0], ArrowRight: [st, 0], ArrowUp: [0, -st], ArrowDown: [0, st] }[e.key]; if (k) { e.preventDefault(); nudge(...k); } else if (e.key === '+' || e.key === '=') zoomAt(zoom * 1.1); else if (e.key === '-') zoomAt(zoom / 1.1); }} />
           </div>
           <div className="stack mc-crop-side">
-            <div className="label">Vorschau</div>
+            <div className="label">Preview</div>
             <div className="mc-serverlist mini"><div className="mc-icon"><canvas ref={small} width={64} height={64} /></div><div className="tiny muted">64×64</div></div>
-            <Field label={`Größe: ${Math.round(zoom * 100)} %`}>
+            <Field label={`Size: ${Math.round(zoom * 100)} %`}>
               <input className="range" type="range" min={Math.round(fitZoom * 50)} max={800} value={Math.round(zoom * 100)} onChange={(e) => zoomAt(Number(e.target.value) / 100)} />
             </Field>
             <div className="row-tight" style={{ flexWrap: 'wrap' }}>
-              <Btn className="xs" onClick={() => { setZoom(1); setOff({ x: 0, y: 0 }); }}>Füllen</Btn>
-              <Btn className="xs" onClick={() => { setZoom(fitZoom); setOff({ x: 0, y: 0 }); }}>Ganz zeigen</Btn>
+              <Btn className="xs" onClick={() => { setZoom(1); setOff({ x: 0, y: 0 }); }}>Fill</Btn>
+              <Btn className="xs" onClick={() => { setZoom(fitZoom); setOff({ x: 0, y: 0 }); }}>Show all</Btn>
               <Btn className="xs ghost" onClick={() => setOff({ x: 0, y: 0 })}>Zentrieren</Btn>
             </div>
-            <div className="row-tight small"><Switch checked={!smooth} onChange={(v) => setSmooth(!v)} label="Pixel-Art (scharfe Kanten)" /><span>Pixel-Art (scharfe Kanten)</span></div>
-            <div className="tiny muted">{tr(`Bild: ${img.width}×${img.height} Pixel`)}</div>
+            <div className="row-tight small"><Switch checked={!smooth} onChange={(v) => setSmooth(!v)} label="Pixel art (sharp edges)" /><span>Pixel art (sharp edges)</span></div>
+            <div className="tiny muted">{T(`Image: ${img.width}×${img.height} pixels`)}</div>
           </div>
         </div>
       )}
@@ -156,49 +156,49 @@ function Appearance({ s, iconOnly = false }) {
     setTimeout(() => { if (el) { el.focus(); el.setSelectionRange(pos + code.length, pos + code.length); } }, 0);
   };
   // Läuft der Server mit HostwerkBridge 1.2+, sehen Spieler MOTD und Symbol sofort – sonst nach dem nächsten Neustart
-  const liveNote = (r) => (!r.running ? '' : r.live ? ' – sofort sichtbar' : r.bridgeNeeded ? ' – sichtbar nach Neustart (sofort mit HostwerkBridge)' : ' – sichtbar nach Neustart');
+  const liveNote = (r) => (!r.running ? '' : r.live ? T(' – visible right away') : r.bridgeNeeded ? T(' – visible after a restart (right away with HostwerkBridge)') : T(' – visible after restart'));
   const saveMotd = async () => {
     setSavingMotd(true);
-    try { const r = await put(`/mc/servers/${s.id}/motd`, { motd: motd.replace(/§/g, '\\u00a7') }); props.setData({ ...props.data, motd: r.motd }); toast.success(tr('MOTD gespeichert') + tr(liveNote(r))); } catch (e) { toast.error(e.message); }
+    try { const r = await put(`/mc/servers/${s.id}/motd`, { motd: motd.replace(/§/g, '\\u00a7') }); props.setData({ ...props.data, motd: r.motd }); toast.success(T('MOTD saved') + T(liveNote(r))); } catch (e) { toast.error(e.message); }
     setSavingMotd(false);
   };
   const saveIcon = async (png) => {
-    try { const r = await put(`/mc/servers/${s.id}/icon`, { png }); setIconV(Date.now()); setHasIcon(true); setCrop(null); toast.success(tr('Server-Symbol gespeichert') + tr(liveNote({ ...r, running }))); } catch (e) { toast.error(e.message); }
+    try { const r = await put(`/mc/servers/${s.id}/icon`, { png }); setIconV(Date.now()); setHasIcon(true); setCrop(null); toast.success(T('Server icon saved') + T(liveNote({ ...r, running }))); } catch (e) { toast.error(e.message); }
   };
   return (
     <div className="card">
-      <div className="card-head"><Palette size={16} /><h3>{iconOnly ? tr('Server-Symbol') : tr('So sehen Spieler deinen Server')}</h3></div>
+      <div className="card-head"><Palette size={16} /><h3>{iconOnly ? T(T('Server icon')) : T('This is how players see your server')}</h3></div>
       <div className="card-body stack" style={{ gap: 12 }}>
         <div className="mc-serverlist">
           <DropTarget onFile={setCrop}>
-            <div className="mc-icon" role="button" tabIndex={0} onClick={() => file.current && file.current.click()} onKeyDown={(e) => { if (e.key === 'Enter') file.current && file.current.click(); }} title="Symbol ändern – Bild wählen oder hierher ziehen, danach Ausschnitt festlegen">
+            <div className="mc-icon" role="button" tabIndex={0} onClick={() => file.current && file.current.click()} onKeyDown={(e) => { if (e.key === 'Enter') file.current && file.current.click(); }} title="Change icon – pick an image or drop it here, then choose the crop">
               {hasIcon ? <img src={`/api/mc/servers/${s.id}/icon?v=${iconV}`} alt="" onError={() => setHasIcon(false)} /> : <ImageIcon size={26} />}
             </div>
           </DropTarget>
           <div className="grow" style={{ minWidth: 0 }}>
-            <div className="mc-name">{s.name}</div>
+            <div className="mc-name"><Keep>{s.name}</Keep></div>
             <div className="mc-motd-preview"><McText text={shown || 'A Minecraft Server'} /></div>
           </div>
           <div className="mc-count">{mcCount(s)}/{s.proc.extra.maxPlayersLive || s.maxPlayers || 20}</div>
         </div>
-        {!iconOnly && live && edited && <div className="small muted">Vorschau zeigt deine Änderung – so sehen Spieler sie nach dem Speichern.</div>}
-        {!iconOnly && live && !edited && overridden && <InfoTip>Diese MOTD kommt gerade live vom Server – ein Plugin überschreibt die Beschreibung aus server.properties. Änderungen hier wirken nur, wenn das Plugin sie nicht ersetzt.</InfoTip>}
+        {!iconOnly && live && edited && <div className="small muted">The preview shows your change – this is what players see after saving.</div>}
+        {!iconOnly && live && !edited && overridden && <InfoTip>This MOTD comes live from the server – a plugin overrides the description from server.properties. Changes here only apply if the plugin doesn't replace them.</InfoTip>}
         <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { if (e.target.files[0]) setCrop(e.target.files[0]); e.target.value = ''; }} />
         {!iconOnly && <>
-        <Field label="Beschreibung (MOTD)" hint="Zweite Zeile mit \n. Farben per Klick einfügen.">
+        <Field label="Description (MOTD)" hint={'Second line with \\n. Insert colors with a click.'}>
           <input ref={input} className="input mono" value={motd} onChange={(e) => setMotd(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && edited) saveMotd(); }} />
         </Field>
         <div className="mc-colors">
           {Object.entries(MC).map(([k, c]) => <button key={k} title={`§${k}`} style={{ background: c }} onClick={() => insert('§' + k)} />)}
           <button className="fmt" title="Fett" onClick={() => insert('§l')}><b>F</b></button>
           <button className="fmt" title="Kursiv" onClick={() => insert('§o')}><i>K</i></button>
-          <button className="fmt" title="Zurücksetzen" onClick={() => insert('§r')}>↺</button>
+          <button className="fmt" title="Revert" onClick={() => insert('§r')}>↺</button>
         </div>
         </>}
         <div className="row">
-          {!iconOnly && <Btn className="primary sm" icon={Save} busy={savingMotd} disabled={!edited} onClick={saveMotd}>Speichern</Btn>}
-          <Btn className="sm" icon={ImageIcon} onClick={() => file.current && file.current.click()}>Symbol wählen …</Btn>
-          {hasIcon && <Btn className="sm ghost" icon={Trash2} onClick={async () => { try { const r = await del(`/mc/servers/${s.id}/icon`); setHasIcon(false); if (running) toast(r.live ? tr('Symbol entfernt – sofort sichtbar') : tr('Symbol entfernt – sichtbar nach Neustart')); } catch (e) { toast.error(e.message); } }}>Symbol entfernen</Btn>}
+          {!iconOnly && <Btn className="primary sm" icon={Save} busy={savingMotd} disabled={!edited} onClick={saveMotd}>Save</Btn>}
+          <Btn className="sm" icon={ImageIcon} onClick={() => file.current && file.current.click()}>Choose icon …</Btn>
+          {hasIcon && <Btn className="sm ghost" icon={Trash2} onClick={async () => { try { const r = await del(`/mc/servers/${s.id}/icon`); setHasIcon(false); if (running) toast(r.live ? T('Icon removed – visible right away') : T('Icon removed – visible after a restart')); } catch (e) { toast.error(e.message); } }}>Remove icon</Btn>}
         </div>
       </div>
       {crop && <IconCropper file={crop} onCancel={() => setCrop(null)} onSave={saveIcon} />}
@@ -219,54 +219,54 @@ function DropTarget({ onFile, children }) {
 
 
 /* ------------------------------------------------------------------ Schnellaktionen */
-const RESTART_STEPS = [[0, 'Sofort'], [10, 'In 10 Sekunden'], [30, 'In 30 Sekunden'], [60, 'In 1 Minute'], [300, 'In 5 Minuten']];
-const MODES = [['survival', 'Überleben'], ['creative', 'Kreativ'], ['adventure', 'Abenteuer'], ['spectator', 'Zuschauer']];
-const DIFFS = [['peaceful', 'Friedlich'], ['easy', 'Einfach'], ['normal', 'Normal'], ['hard', 'Schwer']];
+const RESTART_STEPS = [[0, 'Right away'], [10, 'In 10 seconds'], [30, 'In 30 seconds'], [60, 'In 1 minute'], [300, 'In 5 minutes']];
+const MODES = [['survival', 'Survival'], ['creative', 'Creative'], ['adventure', 'Adventure'], ['spectator', 'Spectator']];
+const DIFFS = [['peaceful', 'Peaceful'], ['easy', 'Simple'], ['normal', 'Normal'], ['hard', 'Hard']];
 
 /** Knopf der Schnellaktionen (more = öffnet eine Auswahl). */
 function Q({ icon: I, label, onClick, title, more, danger, off }) {
-  return <button type="button" className={`mc-qbtn ${danger ? 'danger' : ''}`} disabled={off} title={title ? tr(title) : undefined} onClick={onClick}><I />{label}{more && <ChevronDown className="mc-qmore" />}</button>;
+  return <button type="button" className={`mc-qbtn ${danger ? 'danger' : ''}`} disabled={off} title={title ? T(title) : undefined} onClick={onClick}><I />{label}{more && <ChevronDown className="mc-qmore" />}</button>;
 }
 
 /** Häufige Befehle als Knöpfe, nach Zweck gruppiert. Knöpfe mit ▾ öffnen eine kleine Auswahl. */
 function QuickActions({ s, ready, cmd }) {
-  const run = (c, ok) => { cmd(c); if (ok) toast.success(tr(ok)); };
+  const run = (c, ok) => { cmd(c); if (ok) toast.success(T(ok)); };
   const menuAt = (e, items) => { const r = e.currentTarget.getBoundingClientRect(); contextMenu({ preventDefault() {}, stopPropagation() {}, clientX: r.left, clientY: r.bottom + 4 }, items); };
   const paper = ['paper', 'purpur', 'folia', 'leaf', 'pufferfish'].includes(s.type);
   return (
     <div className="card">
-      <div className="card-head"><Zap size={16} /><h3>Schnellaktionen</h3>{!ready && <span className="tiny muted">Welt lädt …</span>}</div>
+      <div className="card-head"><Zap size={16} /><h3>Quick actions</h3>{!ready && <span className="tiny muted">World loading …</span>}</div>
       <div className="card-body stack" style={{ gap: 10 }}>
-        <div className="mc-qgroup"><div className="label">Zeit &amp; Wetter</div>
+        <div className="mc-qgroup"><div className="label">Time & weather</div>
           <div className="mc-quick">
-            <Q off={!ready} icon={Sun} label="Tag" onClick={() => run('time set day')} />
-            <Q off={!ready} icon={Moon} label="Nacht" onClick={() => run('time set night')} />
-            <Q off={!ready} icon={CloudSun} label="Sonne" onClick={() => run('weather clear')} />
-            <Q off={!ready} icon={CloudRain} label="Regen" onClick={() => run('weather rain')} />
-            <Q off={!ready} icon={CloudLightning} label="Gewitter" onClick={() => run('weather thunder')} />
+            <Q off={!ready} icon={Sun} label="Day" onClick={() => run('time set day')} />
+            <Q off={!ready} icon={Moon} label="Night" onClick={() => run('time set night')} />
+            <Q off={!ready} icon={CloudSun} label="Sunny" onClick={() => run('weather clear')} />
+            <Q off={!ready} icon={CloudRain} label="Rain" onClick={() => run('weather rain')} />
+            <Q off={!ready} icon={CloudLightning} label="Thunder" onClick={() => run('weather thunder')} />
           </div>
         </div>
-        <div className="mc-qgroup"><div className="label">Spieler</div>
+        <div className="mc-qgroup"><div className="label">Players</div>
           <div className="mc-quick">
-            <Q off={!ready} icon={Megaphone} label="Ansage" onClick={async () => { const t = await promptDialog({ title: 'Nachricht an alle', label: 'Text', placeholder: 'Server startet gleich neu!' }); if (t) cmd(`say ${t}`); }} />
-            <Q off={!ready} icon={HeartPulse} label="Alle heilen" title="Alle Spieler heilen und satt machen" onClick={() => { cmd('effect give @a minecraft:instant_health 1 10'); run('effect give @a minecraft:saturation 1 10', 'Alle Spieler geheilt'); }} />
-            <Q off={!ready} icon={Gamepad2} label="Spielmodus" more title="Spielmodus für alle Online-Spieler" onClick={(e) => menuAt(e, MODES.map(([id, l]) => ({ label: tr(`Alle: ${l}`), onClick: () => run(`gamemode ${id} @a`, `Alle Spieler: ${l}`) })))} />
-            <Q off={!ready} icon={UserX} label="Alle kicken" danger title="Alle Spieler trennen (z. B. für Wartung)" onClick={async () => { const r = await promptDialog({ title: 'Alle Spieler kicken?', label: 'Grund (optional)', value: tr('Wartung – gleich wieder da!'), confirm: 'Alle kicken' }); if (r !== null) run(`kick @a ${r}`.trim(), 'Alle Spieler gekickt'); }} />
+            <Q off={!ready} icon={Megaphone} label="Announce" onClick={async () => { const t = await promptDialog({ title: 'Message to everyone', label: 'Text', placeholder: 'Server restarting soon!' }); if (t) cmd(`say ${t}`); }} />
+            <Q off={!ready} icon={HeartPulse} label="Heal all" title="Heal and feed all players" onClick={() => { cmd('effect give @a minecraft:instant_health 1 10'); run('effect give @a minecraft:saturation 1 10', T('All players healed')); }} />
+            <Q off={!ready} icon={Gamepad2} label="Game mode" more title="Game mode for all online players" onClick={(e) => menuAt(e, MODES.map(([id, l]) => ({ label: T(`All: ${l}`), onClick: () => run(`gamemode ${id} @a`, T(`All players: ${l}`)) })))} />
+            <Q off={!ready} icon={UserX} label="Kick all" danger title="Disconnect all players (e.g. for maintenance)" onClick={async () => { const r = await promptDialog({ title: 'Kick all players?', label: 'Reason (optional)', value: T('Maintenance – back in a moment!'), confirm: 'Kick all' }); if (r !== null) run(`kick @a ${r}`.trim(), T('All players kicked')); }} />
           </div>
         </div>
-        <div className="mc-qgroup"><div className="label">Welt</div>
+        <div className="mc-qgroup"><div className="label">World</div>
           <div className="mc-quick">
-            <Q off={!ready} icon={SlidersHorizontal} label="Schwierigkeit" more onClick={(e) => menuAt(e, DIFFS.map(([id, l]) => ({ label: tr(l), onClick: () => run(`difficulty ${id}`, `Schwierigkeit: ${l}`) })))} />
-            <Q off={!ready} icon={Eraser} label="Items aufräumen" title="Alle herumliegenden Gegenstände entfernen – hilft bei Ruckeln" onClick={async () => { if (await confirmDialog({ title: 'Herumliegende Gegenstände entfernen?', text: 'Alle Items auf dem Boden in allen geladenen Chunks verschwinden. Spieler-Inventare bleiben unberührt.', confirm: 'Aufräumen' })) run('kill @e[type=minecraft:item]', 'Gegenstände entfernt'); }} />
-            <Q off={!ready} icon={Package} label="Datapacks neu laden" title="Datapacks, Rezepte und Funktionen neu einlesen (ohne Neustart)" onClick={() => run('minecraft:reload', 'Datapacks werden neu geladen')} />
-            {paper && <Q off={!ready} icon={Gauge} label="TPS messen" onClick={() => cmd('tps')} />}
+            <Q off={!ready} icon={SlidersHorizontal} label="Difficulty" more onClick={(e) => menuAt(e, DIFFS.map(([id, l]) => ({ label: T(l), onClick: () => run(`difficulty ${id}`, T(`Difficulty: ${l}`)) })))} />
+            <Q off={!ready} icon={Eraser} label="Clear items" title="Remove all items lying around – helps against lag" onClick={async () => { if (await confirmDialog({ title: 'Remove items lying around?', text: 'All items on the ground in all loaded chunks disappear. Player inventories stay untouched.', confirm: 'Clean up' })) run('kill @e[type=minecraft:item]', T('Items removed')); }} />
+            <Q off={!ready} icon={Package} label="Reload datapacks" title="Re-read datapacks, recipes and functions (no restart)" onClick={() => run('minecraft:reload', T('Datapacks are being reloaded'))} />
+            {paper && <Q off={!ready} icon={Gauge} label="Measure TPS" onClick={() => cmd('tps')} />}
           </div>
         </div>
         <div className="mc-qgroup"><div className="label">Server</div>
           <div className="mc-quick">
-            <Q off={!ready} icon={Save} label="Speichern" onClick={() => run('save-all', 'Welt wird gespeichert')} />
-            <Q off={!ready} icon={Archive} label="Sicherung" onClick={async () => { try { await post(`/mc/servers/${s.id}/backups`, { label: 'schnell' }); toast(tr('Sicherung läuft …')); } catch (e) { toast.error(e.message); } }} />
-            <Q off={!ready} icon={RotateCw} label="Neustart" more title="Neu starten – auf Wunsch mit Vorwarnung im Chat" onClick={(e) => menuAt(e, RESTART_STEPS.map(([sec, l]) => ({ label: tr(l), hint: sec ? tr('mit Ansage') : '', onClick: async () => { try { await post(`/mc/servers/${s.id}/restart-warn`, { seconds: sec }); toast(sec ? tr(`Neustart in ${sec} s – Spieler werden gewarnt`) : tr('Server startet neu …')); } catch (er) { toast.error(er.message); } } })))} />
+            <Q off={!ready} icon={Save} label="Save" onClick={() => run('save-all', T('World is being saved'))} />
+            <Q off={!ready} icon={Archive} label="Backup" onClick={async () => { try { await post(`/mc/servers/${s.id}/backups`, { label: 'schnell' }); toast(T('Backup running …')); } catch (e) { toast.error(e.message); } }} />
+            <Q off={!ready} icon={RotateCw} label="Restart" more title="Restart – with a warning in chat if you like" onClick={(e) => menuAt(e, RESTART_STEPS.map(([sec, l]) => ({ label: T(l), hint: sec ? T('with announcement') : '', onClick: async () => { try { await post(`/mc/servers/${s.id}/restart-warn`, { seconds: sec }); toast(sec ? T(`Restart in ${sec} s – players are being warned`) : T('Server is restarting …')); } catch (er) { toast.error(er.message); } } })))} />
           </div>
         </div>
       </div>
@@ -294,20 +294,20 @@ export function OverviewTab({ s }) {
   return (
     <div className="mc-fit-stack">
       <div className="grid grid-4">
-        <div className="card stat"><div className="k"><Users />Spieler</div><div className="v">{players.length}<span className="of"> / {s.maxPlayers || 20}</span></div><div className="s">{running ? (ready ? 'online' : 'Welt lädt …') : 'Server gestoppt'}</div></div>
-        <div className="card stat"><div className="k"><Gauge />Leistung</div><div className="v" style={{ color: tps == null ? undefined : tps >= 19.5 ? 'var(--ok)' : tps >= 17 ? 'var(--warn)' : 'var(--err)' }}>{tps != null ? tps : '–'}<span className="of"> TPS</span></div><div className="s">{tps != null ? '20 = flüssig' : ['paper', 'purpur'].includes(s.type) ? <button className="link-btn" disabled={!ready} onClick={() => cmd('tps')}>messen</button> : 'nur bei Paper/Purpur'}</div></div>
-        <div className="card stat"><div className="k"><HardDrive />Welten</div><div className="v">{worldSize != null ? fmtBytes(worldSize) : '…'}</div><div className="s">{worlds.data ? (() => { const n = worlds.data.worlds.reduce((k, w) => k + Math.max(1, (w.dims || []).length), 0); return n > worlds.data.worlds.length ? `${pl(worlds.data.worlds.length, 'Welt', 'Welten')} · ${pl(n, 'Dimension', 'Dimensionen')}` : pl(worlds.data.worlds.length, 'Welt', 'Welten'); })() : ''}</div></div>
-        <div className="card stat"><div className="k"><ShieldCheck />Prüfung</div><div className="v text" style={{ marginTop: 8 }}>{test.data ? (test.data.ok ? <span style={{ color: 'var(--ok-text)' }}>bestanden</span> : <span style={{ color: 'var(--err-text)' }}>Probleme</span>) : <span className="muted">–</span>}</div><div className="s">{test.data ? fmtDate(test.data.at) : <a href={`#/mc/${s.id}/automation`}>jetzt prüfen →</a>}</div></div>
+        <div className="card stat"><div className="k"><Users />Players</div><div className="v">{players.length}<span className="of"> / {s.maxPlayers || 20}</span></div><div className="s">{running ? (ready ? 'online' : 'World loading …') : 'Server stopped'}</div></div>
+        <div className="card stat"><div className="k"><Gauge />Performance</div><div className="v" style={{ color: tps == null ? undefined : tps >= 19.5 ? 'var(--ok)' : tps >= 17 ? 'var(--warn)' : 'var(--err)' }}>{tps != null ? tps : '–'}<span className="of"> TPS</span></div><div className="s">{tps != null ? '20 = smooth' : ['paper', 'purpur'].includes(s.type) ? <button className="link-btn" disabled={!ready} onClick={() => cmd('tps')}>measure</button> : 'Paper/Purpur only'}</div></div>
+        <div className="card stat"><div className="k"><HardDrive />Worlds</div><div className="v">{worldSize != null ? fmtBytes(worldSize) : '…'}</div><div className="s">{worlds.data ? (() => { const n = worlds.data.worlds.reduce((k, w) => k + Math.max(1, (w.dims || []).length), 0); return n > worlds.data.worlds.length ? `${pl(worlds.data.worlds.length, '{n} world', '{n} worlds')} · ${pl(n, '{n} dimension', '{n} dimensions')}` : pl(worlds.data.worlds.length, '{n} world', '{n} worlds'); })() : ''}</div></div>
+        <div className="card stat"><div className="k"><ShieldCheck />Check</div><div className="v text" style={{ marginTop: 8 }}>{test.data ? (test.data.ok ? <span style={{ color: 'var(--ok-text)' }}>passed</span> : <span style={{ color: 'var(--err-text)' }}>Problems</span>) : <span className="muted">–</span>}</div><div className="s">{test.data ? fmtDate(test.data.at) : <a href={`#/mc/${s.id}/automation`}>check now →</a>}</div></div>
       </div>
       <div className="grid grid-2 mc-fit-grid">
         <div className="stack mc-col">
           <div className="card">
-            <div className="card-head"><Gauge size={16} /><h3>Zustand</h3><div className="right"><StatusPill state={s.proc.state} label={running && !ready ? 'Lädt Welt …' : undefined} /></div></div>
+            <div className="card-head"><Gauge size={16} /><h3>Health</h3><div className="right"><StatusPill state={s.proc.state} label={running && !ready ? 'Loading world …' : undefined} /></div></div>
             <div className="card-body stack" style={{ gap: 12 }}>
               <HealthSummary s={s} />
               <div className="stack" style={{ gap: 6 }}>
-                <div className="label">Verbinden</div>
-                {[s.address.local, ...s.address.lan].map((a) => <div key={a} className="row-tight"><code className="grow ellipsis">{a}</code><button className="btn ghost xs icon" title="Kopieren" onClick={() => { navigator.clipboard.writeText(a); toast.success('Adresse kopiert'); }}><Copy /></button></div>)}
+                <div className="label">Connect</div>
+                {[s.address.local, ...s.address.lan].map((a) => <div key={a} className="row-tight"><code className="grow ellipsis">{a}</code><button className="btn ghost xs icon" title="Copy" onClick={() => { navigator.clipboard.writeText(a); toast.success('Address copied'); }}><Copy /></button></div>)}
                 {connectSlots.map((c) => <ErrorBoundary key={c.key} silent where={c.key}><c.Component s={s} /></ErrorBoundary>)}
               </div>
             </div>
@@ -316,18 +316,18 @@ export function OverviewTab({ s }) {
           <TpsCard s={s} />
           {errors.length > 0 && (
             <div className="card">
-              <div className="card-head"><AlertTriangle size={16} style={{ color: 'var(--warn-text)' }} /><h3>Letzte Fehler im Protokoll</h3><div className="right"><a className="btn ghost sm" href={`#/mc/${s.id}/console`}><ScrollText />Konsole</a></div></div>
+              <div className="card-head"><AlertTriangle size={16} style={{ color: 'var(--warn-text)' }} /><h3>Recent errors in the log</h3><div className="right"><a className="btn ghost sm" href={`#/mc/${s.id}/console`}><ScrollText />Console</a></div></div>
               <div className="card-body stack" style={{ gap: 4 }}>{errors.map((e, i) => <div key={i} className="mono tiny ellipsis" style={{ color: 'var(--err-text)' }} title={e.l}>{e.l.replace(/\x1b\[[0-9;]*m/g, '')}</div>)}</div>
             </div>
           )}
         </div>
         <div className="stack mc-col">
           <div className="card">
-            <div className="card-head"><Users size={16} /><h3>Online ({players.length})</h3><div className="right"><a className="btn ghost sm" href={`#/mc/${s.id}/players`}>Spielerverwaltung</a></div></div>
-            {players.length === 0 ? <div className="card-body small muted">{running ? 'Niemand online.' : 'Server ist gestoppt.'}</div> : (
+            <div className="card-head"><Users size={16} /><h3>Online ({players.length})</h3><div className="right"><a className="btn ghost sm" href={`#/mc/${s.id}/players`}>Player management</a></div></div>
+            {players.length === 0 ? <div className="card-body small muted">{running ? 'Nobody online.' : 'Server is stopped.'}</div> : (
               <div className="mc-players">
                 {players.map((p) => (
-                  <div key={p} className="mc-player" onContextMenu={ctxFor(p)} title="Rechtsklick: weitere Aktionen">
+                  <div key={p} className="mc-player" onContextMenu={ctxFor(p)} title="Right-click: more actions">
                     <PlayerHead name={p} size={40} />
                     <span className="ellipsis">{p}{lists.isOp(p) && <Crown size={12} className="mc-op-badge" />}</span>
                     <PlayerButtons s={s} name={p} lists={lists} online={players} />
@@ -354,29 +354,29 @@ export function WorldsTab({ s }) {
   const running = s.proc.state === 'running' && s.proc.extra.ready;
   const loadRules = () => get(`/mc/servers/${s.id}/gamerules`).then(setRules).catch((e) => toast.error(e.message));
   useEffect(() => { loadRules(); }, [running, s.proc.state]); // eslint-disable-line react-hooks/exhaustive-deps -- kein Nachladen: Regeln werden hier bearbeitet, neu bei Start/Stopp
-  const LABEL = { keepInventory: 'Inventar behalten beim Tod', doDaylightCycle: 'Tag-Nacht-Wechsel', doWeatherCycle: 'Wetterwechsel', doMobSpawning: 'Kreaturen spawnen', mobGriefing: 'Kreaturen zerstören Blöcke', doFireTick: 'Feuer breitet sich aus', pvp: 'PvP', naturalRegeneration: 'Natürliche Heilung', doInsomnia: 'Phantome', doImmediateRespawn: 'Sofort wiederbeleben', announceAdvancements: 'Fortschritte ankündigen', showDeathMessages: 'Todesnachrichten', doMobLoot: 'Kreaturen droppen Beute', doTileDrops: 'Blöcke droppen Items', fallDamage: 'Fallschaden', fireDamage: 'Feuerschaden', drowningDamage: 'Ertrinken', freezeDamage: 'Erfrieren', playersSleepingPercentage: 'Schlafende Spieler für Nacht (%)', randomTickSpeed: 'Wachstumsgeschwindigkeit', spawnRadius: 'Spawn-Radius', maxEntityCramming: 'Max. Kreaturen auf einem Block', doTraderSpawning: 'Händler spawnen', doPatrolSpawning: 'Plünderer-Patrouillen', disableRaids: 'Überfälle aus', commandBlockOutput: 'Befehlsblock-Ausgabe', sendCommandFeedback: 'Befehls-Rückmeldung', reducedDebugInfo: 'Weniger Debug-Infos (F3)', spectatorsGenerateChunks: 'Zuschauer laden Chunks', forgiveDeadPlayers: 'Neutrale Mobs vergeben', universalAnger: 'Universeller Zorn', tntExplodes: 'TNT explodiert', projectilesCanBreakBlocks: 'Geschosse zerstören Blöcke' };
+  const LABEL = { keepInventory: T('Keep inventory on death'), doDaylightCycle: T('Day-night cycle'), doWeatherCycle: T('Weather cycle'), doMobSpawning: T('Mobs spawn'), mobGriefing: T('Mobs destroy blocks'), doFireTick: T('Fire spreads'), pvp: 'PvP', naturalRegeneration: T('Natural regeneration'), doInsomnia: T('Phantoms'), doImmediateRespawn: T('Immediate respawn'), announceAdvancements: T('Announce advancements'), showDeathMessages: T('Death messages'), doMobLoot: T('Mobs drop loot'), doTileDrops: T('Blocks drop items'), fallDamage: T('Fall damage'), fireDamage: T('Fire damage'), drowningDamage: T('Drowning'), freezeDamage: T('Freezing'), playersSleepingPercentage: T('Sleeping players to skip night (%)'), randomTickSpeed: T('Random tick speed'), spawnRadius: T('Spawn radius'), maxEntityCramming: T('Max. entities on one block'), doTraderSpawning: T('Traders spawn'), doPatrolSpawning: T('Pillager patrols'), disableRaids: T('Disable raids'), commandBlockOutput: T('Command block output'), sendCommandFeedback: T('Command feedback'), reducedDebugInfo: T('Reduced debug info (F3)'), spectatorsGenerateChunks: T('Spectators generate chunks'), forgiveDeadPlayers: T('Neutral mobs forgive'), universalAnger: T('Universal anger'), tntExplodes: T('TNT explodes'), projectilesCanBreakBlocks: T('Projectiles break blocks') };
   // Minecraft 26: neue, englische Namen (minecraft:keep_inventory) – Erklärungen dafür und für die alten Namen
-  const LABEL26 = { keep_inventory: 'Inventar behalten beim Tod', advance_time: 'Tag-Nacht-Wechsel', advance_weather: 'Wetterwechsel', spawn_mobs: 'Kreaturen spawnen', spawn_monsters: 'Monster spawnen', mob_griefing: 'Kreaturen zerstören Blöcke', fire_spread_radius_around_player: 'Feuer breitet sich aus (Radius um Spieler)', pvp: 'PvP', natural_health_regeneration: 'Natürliche Heilung', spawn_phantoms: 'Phantome', immediate_respawn: 'Sofort wiederbeleben', show_advancement_messages: 'Fortschritte ankündigen', show_death_messages: 'Todesnachrichten', mob_drops: 'Kreaturen droppen Beute', block_drops: 'Blöcke droppen Items', entity_drops: 'Objekte droppen (Loren, Rahmen …)', fall_damage: 'Fallschaden', fire_damage: 'Feuerschaden', drowning_damage: 'Ertrinken', freeze_damage: 'Erfrieren', players_sleeping_percentage: 'Schlafende Spieler für Nacht (%)', random_tick_speed: 'Wachstumsgeschwindigkeit', respawn_radius: 'Spawn-Radius', max_entity_cramming: 'Max. Kreaturen auf einem Block', spawn_wandering_traders: 'Händler spawnen', spawn_patrols: 'Plünderer-Patrouillen', raids: 'Überfälle', command_block_output: 'Befehlsblock-Ausgabe', send_command_feedback: 'Befehls-Rückmeldung', reduced_debug_info: 'Weniger Debug-Infos (F3)', spectators_generate_chunks: 'Zuschauer laden Chunks', forgive_dead_players: 'Neutrale Mobs vergeben', universal_anger: 'Universeller Zorn', tnt_explodes: 'TNT explodiert', projectiles_can_break_blocks: 'Geschosse zerstören Blöcke', spawn_wardens: 'Wärter spawnen', command_blocks_work: 'Befehlsblöcke funktionieren', log_admin_commands: 'Admin-Befehle protokollieren', limited_crafting: 'Nur freigeschaltete Rezepte', elytra_movement_check: 'Elytra-Bewegungsprüfung', player_movement_check: 'Bewegungsprüfung (Anti-Cheat)', global_sound_events: 'Globale Klänge (Drache, Wither)', lava_source_conversion: 'Lava wird zur Quelle', water_source_conversion: 'Wasser wird zur Quelle', spread_vines: 'Ranken wachsen', allow_entering_nether_using_portals: 'Netherportale nutzbar', players_nether_portal_default_delay: 'Portal-Wartezeit (Ticks)', players_nether_portal_creative_delay: 'Portal-Wartezeit Kreativ (Ticks)', tnt_explosion_drop_decay: 'TNT: Drops gehen teils verloren', block_explosion_drop_decay: 'Block-Explosion: Drops gehen teils verloren', mob_explosion_drop_decay: 'Creeper: Drops gehen teils verloren', ender_pearls_vanish_on_death: 'Enderperlen verschwinden beim Tod', spawner_blocks_work: 'Spawner funktionieren', locator_bar: 'Spieler-Kompassleiste', max_command_sequence_length: 'Max. Befehlskettenlänge', max_command_forks: 'Max. Befehls-Verzweigungen', max_block_modifications: 'Max. Blockänderungen je Befehl', max_snow_accumulation_height: 'Max. Schneehöhe', disable_elytra_movement_check: 'Elytra-Prüfung aus', disable_player_movement_check: 'Bewegungsprüfung aus', do_vines_spread: 'Ranken wachsen', do_warden_spawning: 'Wärter spawnen' };
-  const GROUP26 = (n) => (/damage|regeneration|respawn|keep_inventory|sleeping|phantom|ender_pearl|pvp|forgive|anger|locator/.test(n) ? 'Spieler' : /spawn|mob|raid|patrol|trader|warden|griefing|cramming/.test(n) ? 'Kreaturen' : /drop|tnt|explo|fire|vine|source|tick|snow|block|projectile|nether|portal|time|weather/.test(n) ? 'Welt' : 'Technik');
+  const LABEL26 = { keep_inventory: T('Keep inventory on death'), advance_time: T('Day-night cycle'), advance_weather: T('Weather cycle'), spawn_mobs: T('Mobs spawn'), spawn_monsters: T('Monsters spawn'), mob_griefing: T('Mobs destroy blocks'), fire_spread_radius_around_player: T('Fire spreads (radius around players)'), pvp: 'PvP', natural_health_regeneration: T('Natural regeneration'), spawn_phantoms: T('Phantoms'), immediate_respawn: T('Immediate respawn'), show_advancement_messages: T('Announce advancements'), show_death_messages: T('Death messages'), mob_drops: T('Mobs drop loot'), block_drops: T('Blocks drop items'), entity_drops: T('Entities drop items (minecarts, frames …)'), fall_damage: T('Fall damage'), fire_damage: T('Fire damage'), drowning_damage: T('Drowning'), freeze_damage: T('Freezing'), players_sleeping_percentage: T('Sleeping players to skip night (%)'), random_tick_speed: T('Random tick speed'), respawn_radius: T('Spawn radius'), max_entity_cramming: T('Max. entities on one block'), spawn_wandering_traders: T('Traders spawn'), spawn_patrols: T('Pillager patrols'), raids: T('Raids'), command_block_output: T('Command block output'), send_command_feedback: T('Command feedback'), reduced_debug_info: T('Reduced debug info (F3)'), spectators_generate_chunks: T('Spectators generate chunks'), forgive_dead_players: T('Neutral mobs forgive'), universal_anger: T('Universal anger'), tnt_explodes: T('TNT explodes'), projectiles_can_break_blocks: T('Projectiles break blocks'), spawn_wardens: T('Wardens spawn'), command_blocks_work: T('Command blocks work'), log_admin_commands: T('Log admin commands'), limited_crafting: T('Only unlocked recipes'), elytra_movement_check: T('Elytra movement check'), player_movement_check: T('Movement check (anti-cheat)'), global_sound_events: T('Global sounds (dragon, wither)'), lava_source_conversion: T('Lava becomes a source'), water_source_conversion: T('Water becomes a source'), spread_vines: T('Vines spread'), allow_entering_nether_using_portals: T('Nether portals usable'), players_nether_portal_default_delay: T('Portal wait (ticks)'), players_nether_portal_creative_delay: T('Portal wait in creative (ticks)'), tnt_explosion_drop_decay: T('TNT: some drops are lost'), block_explosion_drop_decay: T('Block explosion: some drops are lost'), mob_explosion_drop_decay: T('Creeper: some drops are lost'), ender_pearls_vanish_on_death: T('Ender pearls vanish on death'), spawner_blocks_work: T('Spawners work'), locator_bar: T('Player locator bar'), max_command_sequence_length: T('Max. command chain length'), max_command_forks: T('Max. command forks'), max_block_modifications: T('Max. block modifications per command'), max_snow_accumulation_height: T('Max. snow accumulation'), disable_elytra_movement_check: T('Elytra check off'), disable_player_movement_check: T('Movement check off'), do_vines_spread: T('Vines spread'), do_warden_spawning: T('Wardens spawn') };
+  const GROUP26 = (n) => (/damage|regeneration|respawn|keep_inventory|sleeping|phantom|ender_pearl|pvp|forgive|anger|locator/.test(n) ? T('Players') : /spawn|mob|raid|patrol|trader|warden|griefing|cramming/.test(n) ? T('Creatures') : /drop|tnt|explo|fire|vine|source|tick|snow|block|projectile|nether|portal|time|weather/.test(n) ? T('World') : T('Tech'));
   const labelOf = (r) => { const short = r.name.replace(/^minecraft:/, ''); return LABEL[r.name] || LABEL26[short] || short.replace(/_/g, ' ').replace(/^do /, '').replace(/^\w/, (c) => c.toUpperCase()); };
   const setRule = async (r, v) => {
     try {
       const res = await put(`/mc/servers/${s.id}/gamerules`, { name: r.name, value: v });
       setRules({ ...rules, rules: rules.rules.map((x) => (x.name === r.name ? { ...x, value: String(v) } : x)) });
-      toast.success(res.live ? `${labelOf(r)} gesetzt` : `${labelOf(r)} in der Weltdatei gesetzt – gilt beim nächsten Start`);
+      toast.success(res.live ? `${labelOf(r)} set` : `${labelOf(r)} set in the world file – applies on the next start`);
     } catch (e) { toast.error(e.message); }
   };
   const list = rules && rules.rules ? rules.rules.filter((r) => !rq || `${r.name} ${labelOf(r)}`.toLowerCase().includes(rq.toLowerCase())) : [];
-  const groups = [...new Set(list.map((r) => GROUP26(r.name.replace(/^minecraft:/, ''))))].sort((a, b) => ['Spieler', 'Kreaturen', 'Welt', 'Technik'].indexOf(a) - ['Spieler', 'Kreaturen', 'Welt', 'Technik'].indexOf(b));
+  const groups = [...new Set(list.map((r) => GROUP26(r.name.replace(/^minecraft:/, ''))))].sort((a, b) => [T('Players'), T('Creatures'), T('World'), T('Tech')].indexOf(a) - [T('Players'), T('Creatures'), T('World'), T('Tech')].indexOf(b));
   const stopped = s.proc.state !== 'running';
   const dimInfo = useDimInfo(s.id); // Symbole aus dem Katalog bzw. aus den echten Eigenschaften der Dimension
   const reset = async (x, d) => {
     const what = d ? `${dimLabel(d.id, dimInfo(d.id))} (${x.name})` : x.name;
     const text = d
-      ? (d.id === 'minecraft:overworld' ? 'Das Gelände der Oberwelt wird gelöscht und beim nächsten Start neu erzeugt. Spielerdaten, Seed und Spielregeln bleiben. Vorher legt Hostwerk eine Sicherung an.' : 'Nur diese Dimension wird gelöscht und beim nächsten Start neu erzeugt – die anderen bleiben, wie sie sind. Vorher legt Hostwerk eine Sicherung an.')
-      : 'Die ganze Welt (alle Dimensionen darin) wird gelöscht und beim nächsten Start neu erzeugt. Vorher legt Hostwerk eine Sicherung an.';
-    if (!(await confirmDialog({ title: tr(`„${what}“ zurücksetzen?`), text, confirm: 'Zurücksetzen', danger: true, typeToConfirm: x.main && (!d || d.id === 'minecraft:overworld') ? x.name : null }))) return;
-    try { const r = await post(`/mc/servers/${s.id}/worlds/${encodeURIComponent(x.name)}/reset`, d ? { dim: d.id } : {}); await waitJob(r.job); toast.success(tr(`${what} zurückgesetzt`)); } catch (e) { toast.error(e.message); }
+      ? (d.id === 'minecraft:overworld' ? T('The overworld terrain is deleted and generated again at the next start. Player data, seed and game rules stay. Hostwerk makes a backup first.') : T('Only this dimension is deleted and generated again at the next start – the others stay as they are. Hostwerk makes a backup first.'))
+      : T('The whole world (all dimensions in it) is deleted and generated again at the next start. Hostwerk makes a backup first.');
+    if (!(await confirmDialog({ title: T(`Reset “${what}”?`), text, confirm: 'Revert', danger: true, typeToConfirm: x.main && (!d || d.id === 'minecraft:overworld') ? x.name : null }))) return;
+    try { const r = await post(`/mc/servers/${s.id}/worlds/${encodeURIComponent(x.name)}/reset`, d ? { dim: d.id } : {}); await waitJob(r.job); toast.success(T(`${what} reset`)); } catch (e) { toast.error(e.message); }
     w.reload();
   };
   // Welten ohne erkannte Dimension (nur level.dat): eine Zeile nach Art des Ordners
@@ -384,41 +384,41 @@ export function WorldsTab({ s }) {
   return (
     <div className="grid grid-2 mc-fit-grid">
       <div className="card mc-scroll">
-        <div className="card-head"><Globe2 size={16} /><h3>Welten</h3>{w.data && w.data.seed && <span className="badge" title="Seed">Seed {w.data.seed}</span>}<div className="right row-tight">{!s.proxy && <><Btn className="ghost sm" icon={Upload} onClick={() => setDlg('upload')}>Welt hochladen …</Btn><Btn className="ghost sm" icon={Zap} onClick={() => setDlg('pregen')}>Vorgenerieren …</Btn></>}<button className="btn ghost sm icon" title="Neu laden" aria-label="Neu laden" onClick={w.reload}><RefreshCw /></button></div></div>
-        {!stopped && w.data && w.data.worlds.length > 0 && <div className="info-line mc-scroll-fixed"><Info size={13} /><span className="grow">Welten zurücksetzen geht nur bei gestopptem Server.</span><SvcShortcut base={`/mc/servers/${s.id}`} state={s.proc.state} want="stopped" /></div>}
+        <div className="card-head"><Globe2 size={16} /><h3>Worlds</h3>{w.data && w.data.seed && <span className="badge" title="Seed">Seed {w.data.seed}</span>}<div className="right row-tight">{!s.proxy && <><Btn className="ghost sm" icon={Upload} onClick={() => setDlg('upload')}>Upload world …</Btn><Btn className="ghost sm" icon={Zap} onClick={() => setDlg('pregen')}>Pre-generate …</Btn></>}<button className="btn ghost sm icon" title="Reload" aria-label="Reload" onClick={w.reload}><RefreshCw /></button></div></div>
+        {!stopped && w.data && w.data.worlds.length > 0 && <div className="info-line mc-scroll-fixed"><Info size={13} /><span className="grow">Worlds can only be reset while the server is stopped.</span><SvcShortcut base={`/mc/servers/${s.id}`} state={s.proc.state} want="stopped" /></div>}
         <div className="mc-scroll-body">
-          {!w.data ? <Loading /> : w.data.worlds.length === 0 ? <TileEmpty text="Noch keine Welt – sie wird beim ersten Start erzeugt." /> : w.data.worlds.map((x) => (
+          {!w.data ? <Loading /> : w.data.worlds.length === 0 ? <TileEmpty text="No world yet – it's generated on first start." /> : w.data.worlds.map((x) => (
             <div key={x.name} className="mc-world">
               <div className="mc-world-head">
                 <FolderOpen size={15} className="muted" />
-                <b className="ellipsis">{x.name}</b>{x.main && <span className="badge accent">Hauptwelt</span>}
-                <span className="tiny muted">{fmtBytes(x.size)}{(x.dims || []).length > 1 ? ` · ${pl(x.dims.length, 'Dimension', 'Dimensionen')}` : ''}</span>
+                <b className="ellipsis">{x.name}</b>{x.main && <span className="badge accent">Main world</span>}
+                <span className="tiny muted">{fmtBytes(x.size)}{(x.dims || []).length > 1 ? ` · ${pl(x.dims.length, '{n} dimension', '{n} dimensions')}` : ''}</span>
                 <span className="grow" />
-                <a className="btn ghost xs" href={`/api/mc/servers/${s.id}/worlds/${encodeURIComponent(x.name)}/download`} title="Ganze Welt als ZIP herunterladen"><Download />ZIP</a>
-                <Btn className="ghost xs" icon={RotateCcw} disabled={!stopped} title={!stopped ? 'Server zuerst stoppen' : 'Ganze Welt neu erzeugen'} onClick={() => reset(x, null)}>Alles zurücksetzen</Btn>
+                <a className="btn ghost xs" href={`/api/mc/servers/${s.id}/worlds/${encodeURIComponent(x.name)}/download`} title="Download whole world as ZIP"><Download />ZIP</a>
+                <Btn className="ghost xs" icon={RotateCcw} disabled={!stopped} title={!stopped ? 'Stop the server first' : 'Regenerate the whole world'} onClick={() => reset(x, null)}>Reset everything</Btn>
               </div>
               {dimsOf(x).map((d) => (
                 <div key={d.id} className="list-item mc-dim">
                   <McDimIcon id={d.id} info={dimInfo(d.id)} size={32} />
                   <div className="grow" style={{ minWidth: 0 }}>
                     <div className="bold">{dimLabel(d.id, dimInfo(d.id))}</div>
-                    <div className="tiny muted"><span className="mono">{dimKey(d.id)}</span>{d.size != null ? ` · ${fmtBytes(d.size)}` : ''}{!d.id.startsWith('minecraft:') ? ` · ${tr('aus Datenpaket oder Mod')}` : ''}</div>
+                    <div className="tiny muted"><span className="mono">{dimKey(d.id)}</span>{d.size != null ? ` · ${fmtBytes(d.size)}` : ''}{!d.id.startsWith('minecraft:') ? ` · ${T('from datapack or mod')}` : ''}</div>
                   </div>
-                  {d.path && !d.guess && (x.dims || []).length > 1 && <Btn className="ghost xs" icon={RotateCcw} disabled={!stopped} title={!stopped ? 'Server zuerst stoppen' : 'Nur diese Dimension neu erzeugen'} onClick={() => reset(x, d)}>Zurücksetzen</Btn>}
+                  {d.path && !d.guess && (x.dims || []).length > 1 && <Btn className="ghost xs" icon={RotateCcw} disabled={!stopped} title={!stopped ? 'Stop the server first' : 'Regenerate only this dimension'} onClick={() => reset(x, d)}>Revert</Btn>}
                 </div>
               ))}
             </div>
           ))}
-          <div className="card-body tiny muted">Tipp: Nether und Ende einzeln zurückzusetzen ist ein beliebter Weg, neue Ressourcen zu bekommen – die Oberwelt bleibt erhalten.</div>
+          <div className="card-body tiny muted">Tip: resetting the Nether and the End on their own is a popular way to get new resources – the overworld stays.</div>
         </div>
       </div>
       <div className="card mc-scroll">
-        <div className="card-head"><ShieldCheck size={16} /><h3>Spielregeln</h3>{rules && rules.rules && rules.rules.length > 0 && <span className="badge">{rules.live ? 'live' : rules.running ? 'aus der Weltdatei' : 'Server gestoppt'}</span>}
-          <div className="right row-tight"><div className="input-icon" style={{ width: 170 }}><Search /><input className="input sm" placeholder="Regel suchen …" value={rq} onChange={(e) => setRq(e.target.value)} /></div><button className="btn ghost sm icon" title="Neu laden" onClick={loadRules}><RefreshCw /></button></div>
+        <div className="card-head"><ShieldCheck size={16} /><h3>Game rules</h3>{rules && rules.rules && rules.rules.length > 0 && <span className="badge">{rules.live ? 'live' : rules.running ? 'from the world file' : 'Server stopped'}</span>}
+          <div className="right row-tight"><div className="input-icon" style={{ width: 170 }}><Search /><input className="input sm" placeholder="Search rule …" value={rq} onChange={(e) => setRq(e.target.value)} /></div><button className="btn ghost sm icon" title="Reload" onClick={loadRules}><RefreshCw /></button></div>
         </div>
-        {!rules ? <Loading /> : !rules.rules.length ? <div className="card-body small muted">{running ? 'Keine Regeln gefunden – die Welt ist noch nicht gespeichert. Nach dem ersten „save-all“ erscheinen sie hier.' : 'Noch keine Welt – nach dem ersten Start lassen sich die Regeln hier ändern (auch bei gestopptem Server).'}</div> : (
+        {!rules ? <Loading /> : !rules.rules.length ? <div className="card-body small muted">{running ? 'No rules found – the world is not saved yet. After the first “save-all” they appear here.' : 'No world yet – after the first start the rules can be changed here (even with the server stopped).'}</div> : (
           <div className="card-body mc-rules mc-scroll-body" style={{ paddingTop: 4 }}>
-            {!rules.running && <div className="tiny muted" style={{ marginBottom: 6 }}>Der Server ist aus – Änderungen landen direkt in der Weltdatei und gelten beim nächsten Start.</div>}
+            {!rules.running && <div className="tiny muted" style={{ marginBottom: 6 }}>The server is off – changes go straight into the world file and apply on the next start.</div>}
             {groups.map((gname) => (
               <div key={gname} className="mc-rules-group">
                 <div className="label">{gname}</div>
@@ -433,8 +433,8 @@ export function WorldsTab({ s }) {
           </div>
         )}
       </div>
-      {dlg === 'upload' && <Modal title="Welt hochladen" subtitle="Eine Einzelspieler-Welt (Ordner aus .minecraft/saves) oder eine gezippte Welt übernehmen. Vorher sichert Hostwerk den ganzen Server." onClose={() => setDlg(null)} footer={<Btn onClick={() => setDlg(null)}>Schließen</Btn>}><WorldUploadCard s={s} bare onDone={() => { w.reload(); setDlg(null); }} /></Modal>}
-      {dlg === 'pregen' && <Modal title="Welt vorgenerieren" subtitle="Mit Chunky erzeugt der Server das Gelände vorab – später ruckelt es beim Erkunden nicht mehr." onClose={() => setDlg(null)} footer={<Btn onClick={() => setDlg(null)}>Schließen</Btn>}><PregenCard s={s} bare /></Modal>}
+      {dlg === 'upload' && <Modal title="Upload world" subtitle="Import a singleplayer world (folder from .minecraft/saves) or a zipped world. Hostwerk backs up the whole server first." onClose={() => setDlg(null)} footer={<Btn onClick={() => setDlg(null)}>Close</Btn>}><WorldUploadCard s={s} bare onDone={() => { w.reload(); setDlg(null); }} /></Modal>}
+      {dlg === 'pregen' && <Modal title="Pre-generate world" subtitle="With Chunky the server generates the terrain in advance – exploring no longer stutters later." onClose={() => setDlg(null)} footer={<Btn onClick={() => setDlg(null)}>Close</Btn>}><PregenCard s={s} bare /></Modal>}
     </div>
   );
 }
@@ -454,27 +454,27 @@ export function MapTab({ s }) {
     return () => { alive = false; clearInterval(t); };
   }, [d && d.url, d && d.installed, d && d.running]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <Loading />;
-  if (!d.supported) return <div className="card"><Empty icon={MapIcon} title="Karte braucht Plugins" text="Vanilla-Server unterstützen keine Plugins. Wechsle unter „Version“ auf Paper oder Purpur – deine Welt bleibt erhalten." /></div>;
-  const setup = async () => { setBusy(true); try { const r = await post(`/mc/servers/${s.id}/map`); const j = await waitJob(r.job); toast.success(j.result.needsRestart ? 'BlueMap installiert – Server jetzt neu starten' : 'BlueMap installiert – Server starten'); } catch (e) { toast.error(e.message); } setBusy(false); st.reload(); };
+  if (!d.supported) return <div className="card"><Empty icon={MapIcon} title="The map needs plugins" text="Vanilla servers don't support plugins. Switch to Paper or Purpur under “Version” – your world is kept." /></div>;
+  const setup = async () => { setBusy(true); try { const r = await post(`/mc/servers/${s.id}/map`); const j = await waitJob(r.job); toast.success(j.result.needsRestart ? 'BlueMap installed – restart the server now' : 'BlueMap installed – start the server'); } catch (e) { toast.error(e.message); } setBusy(false); st.reload(); };
   if (!d.installed) {
     return (
-      <div className="card"><Empty icon={MapIcon} title="Live-Karte deiner Welt" text="Hostwerk richtet das Plugin BlueMap ein: eine 3D-Karte im Browser, auf der du Spieler, Gebäude und Gelände siehst. Beim ersten Start rendert BlueMap die Welt – das kann einige Minuten dauern.">
-        <Btn className="grad" icon={MapIcon} busy={busy} onClick={setup}>Karte einrichten</Btn>
+      <div className="card"><Empty icon={MapIcon} title="Live map of your world" text="Hostwerk sets up the BlueMap plugin: a 3D map in the browser showing players, buildings and terrain. On first start BlueMap renders the world – this can take a few minutes.">
+        <Btn className="grad" icon={MapIcon} busy={busy} onClick={setup}>Set up map</Btn>
       </Empty></div>
     );
   }
   return (
     <div className="stack">
       <div className="row">
-        <span className="badge ok">BlueMap · Port {d.port}</span>
-        {!d.running ? <span className="small muted">Server starten, um die Karte zu sehen.</span> : reach === false ? <span className="small muted">Karte startet noch … (nach dem Neustart rendert BlueMap im Hintergrund)</span> : null}
+        <span className="badge ok">BlueMap · port {d.port}</span>
+        {!d.running ? <span className="small muted">Start the server to see the map.</span> : reach === false ? <span className="small muted">Map is still starting … (after the restart BlueMap renders in the background)</span> : null}
         <div className="right row-tight">
-          <Btn className="sm" icon={ExternalLink} disabled={!d.running} onClick={() => openExternal(d.url)}>Im Browser öffnen</Btn>
-          <Btn className="sm ghost" icon={RefreshCw} onClick={setup}>Einrichtung prüfen</Btn>
+          <Btn className="sm" icon={ExternalLink} disabled={!d.running} onClick={() => openExternal(d.url)}>Open in browser</Btn>
+          <Btn className="sm ghost" icon={RefreshCw} onClick={setup}>Check setup</Btn>
         </div>
       </div>
-      {d.running && reach ? <iframe className="mc-map" title="Karte" src={d.url} /> : (
-        <div className="card"><Empty icon={MapIcon} title={d.running ? 'Karte wird vorbereitet …' : 'Server ist gestoppt'} text={d.running ? 'Falls BlueMap gerade erst installiert wurde: Server einmal neu starten.' : ''} /></div>
+      {d.running && reach ? <iframe className="mc-map" title="Map" src={d.url} /> : (
+        <div className="card"><Empty icon={MapIcon} title={d.running ? 'Preparing map …' : 'Server is stopped'} text={d.running ? 'If BlueMap was just installed: restart the server once.' : ''} /></div>
       )}
     </div>
   );
@@ -492,16 +492,16 @@ export function AutomationTab({ s }) {
   const r = test.data;
   const icon = { ok: <CheckCircle2 size={16} style={{ color: 'var(--ok-text)' }} />, warn: <AlertTriangle size={16} style={{ color: 'var(--warn-text)' }} />, fail: <XCircle size={16} style={{ color: 'var(--err-text)' }} /> };
   const presets = [
-    { label: 'Nächtlicher Neustart', name: `Neustart ${s.name}`, action: { type: 'mc-restart', target: s.id, warnSeconds: 60 }, schedule: { mode: 'daily', time: '04:00' } },
-    { label: 'Tägliche Sicherung', name: `Sicherung ${s.name}`, action: { type: 'mc-backup', target: s.id }, schedule: { mode: 'daily', time: '03:30' } },
-    { label: 'Regelmäßige Ansage', name: `Ansage ${s.name}`, action: { type: 'mc-command', target: s.id, command: 'say §aDanke fürs Spielen auf unserem Server!' }, schedule: { mode: 'every', minutes: 60 } },
+    { label: T('Nightly restart'), name: T('Restart {name}', { name: s.name }), action: { type: 'mc-restart', target: s.id, warnSeconds: 60 }, schedule: { mode: 'daily', time: '04:00' } },
+    { label: T('Daily backup'), name: T('Backup {name}', { name: s.name }), action: { type: 'mc-backup', target: s.id }, schedule: { mode: 'daily', time: '03:30' } },
+    { label: T('Regular announcement'), name: T('Announcement {name}', { name: s.name }), action: { type: 'mc-command', target: s.id, command: T('say §aThanks for playing on our server!') }, schedule: { mode: 'every', minutes: 60 } },
   ];
   const [preset, setPreset] = useState(null);
   return (
     <div className="grid grid-2">
       <div className="stack">
         <div className="card">
-          <div className="card-head"><CalendarClock size={16} /><h3>Vorlagen</h3></div>
+          <div className="card-head"><CalendarClock size={16} /><h3>Templates</h3></div>
           <div className="card-body row" style={{ flexWrap: 'wrap', gap: 6 }}>
             {presets.map((p) => <Btn key={p.label} className="sm" onClick={() => setPreset({ ...p, lockTarget: true, key: Date.now() })}>{p.label}</Btn>)}
           </div>
@@ -510,12 +510,12 @@ export function AutomationTab({ s }) {
         {preset && <PresetOpener preset={preset} onDone={() => setPreset(null)} />}
       </div>
       <div className="card">
-        <div className="card-head"><ShieldCheck size={16} /><h3>Server-Prüfung</h3><div className="right"><Btn className="sm primary" icon={Play} busy={busy} onClick={run}>Jetzt prüfen</Btn></div></div>
+        <div className="card-head"><ShieldCheck size={16} /><h3>Server check</h3><div className="right"><Btn className="sm primary" icon={Play} busy={busy} onClick={run}>Check now</Btn></div></div>
         <div className="card-body stack" style={{ gap: 10 }}>
-          <div className="small muted">Startet den Server (falls nötig), wartet bis er bereit ist und prüft Plugins, Fehler im Protokoll, Leistung, Arbeitsspeicher und Erreichbarkeit. War der Server aus, wird er danach wieder gestoppt. Ideal nach Updates oder neuen Plugins.</div>
-          {!r ? <Empty icon={ShieldCheck} title="Noch nicht geprüft" /> : (
+          <div className="small muted">Starts the server (if needed), waits until it's ready and checks plugins, log errors, performance, memory and reachability. If the server was off, it's stopped again afterwards. Ideal after updates or new plugins.</div>
+          {!r ? <Empty icon={ShieldCheck} title="Not checked yet" /> : (
             <>
-              <div className={`test-summary ${r.ok ? 'ok' : 'fail'}`}>{r.ok ? <CheckCircle2 /> : <XCircle />}<div><b>{r.ok ? (r.warnings ? `Bestanden mit ${pl(r.warnings, 'Hinweis', 'Hinweisen')}` : 'Alles in Ordnung') : 'Es gibt Probleme'}</b><div className="small">{fmtDate(r.at)} · {Math.round(r.ms / 1000)} s</div></div></div>
+              <div className={`test-summary ${r.ok ? 'ok' : 'fail'}`}>{r.ok ? <CheckCircle2 /> : <XCircle />}<div><b>{r.ok ? (r.warnings ? `Passed with ${pl(r.warnings, '{n} note', '{n} notes')}` : 'All good') : 'There are problems'}</b><div className="small">{fmtDate(r.at)} · {Math.round(r.ms / 1000)} s</div></div></div>
               {r.checks.map((c, i) => <div key={i} className="row" style={{ alignItems: 'flex-start' }}>{icon[c.status]}<div className="grow"><div className="bold small">{c.name}</div><div className="small muted">{c.detail}</div></div></div>)}
             </>
           )}

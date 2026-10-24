@@ -3,7 +3,7 @@ import { Gauge, Cpu, MemoryStick, HardDrive, Globe2, Puzzle, Lightbulb, ListTree
 import { get, post, useApi, fmtBytes, fmtDuration } from '@hostwerk/api';
 import { Btn, SideSheet, Loading, Callout, StatusPill, toast, useNow } from '@hostwerk/ui';
 import McDimIcon, { dimLabel, useDimInfo } from './McDimIcon';
-import { tr } from '@hostwerk/kit';
+import { t as T } from '@hostwerk/i18n';
 
 /*
  * Zustand eines Minecraft-Servers: auf der Kachel CPU und RAM immer als „Server / System“, in der Detailansicht die
@@ -45,20 +45,20 @@ export function HealthSummary({ s }) {
   return (
     <div className="stack" style={{ gap: 10 }}>
       <div className="hb-tiles">
-        <div className="hb-tile" title={tr('CPU dieses Servers / Auslastung des ganzen PCs')}>
-          <div className="k"><Cpu size={13} />CPU <span className="tiny muted">{tr('Server / System')}</span></div>
+        <div className="hb-tile" title={T('CPU of this server / load of the whole PC')}>
+          <div className="k"><Cpu size={13} />CPU <span className="tiny muted">{T(T('Server / system'))}</span></div>
           <div className="v">{pctText(cpu)} <span className="of">/ {pctText(d ? d.cpu : null)}</span></div>
-          <StackBar total={100} parts={[{ v: cpu || 0, cls: 'c1', label: tr('Dieser Server'), hint: pctText(cpu) }, { v: Math.max(0, ((d && d.cpu) || 0) - (cpu || 0)), cls: 'c3', label: tr('Rest des PCs') }]} height={6} />
+          <StackBar total={100} parts={[{ v: cpu || 0, cls: 'c1', label: T('This server'), hint: pctText(cpu) }, { v: Math.max(0, ((d && d.cpu) || 0) - (cpu || 0)), cls: 'c3', label: T('Rest of the PC') }]} height={6} />
         </div>
-        <div className="hb-tile" title={tr('RAM dieses Servers / belegter RAM des ganzen PCs')}>
-          <div className="k"><MemoryStick size={13} />RAM <span className="tiny muted">{tr('Server / System')}</span></div>
+        <div className="hb-tile" title={T('RAM of this server / used RAM of the whole PC')}>
+          <div className="k"><MemoryStick size={13} />RAM <span className="tiny muted">{T(T('Server / system'))}</span></div>
           <div className="v">{gb(mem)} <span className="of">/ {gb(sysMem)}</span></div>
-          <StackBar total={d ? d.totalMem : 1} parts={[{ v: mem || 0, cls: 'c1', label: tr('Dieser Server'), hint: gb(mem) }, { v: Math.max(0, (sysMem || 0) - (mem || 0)), cls: 'c3', label: tr('Rest des PCs') }]} height={6} />
-          {d && <div className="tiny muted">{tr(`von ${fmtBytes(d.totalMem)} im PC`)}</div>}
+          <StackBar total={d ? d.totalMem : 1} parts={[{ v: mem || 0, cls: 'c1', label: T('This server'), hint: gb(mem) }, { v: Math.max(0, (sysMem || 0) - (mem || 0)), cls: 'c3', label: T('Rest of the PC') }]} height={6} />
+          {d && <div className="tiny muted">{T(`of ${fmtBytes(d.totalMem)} in the PC`)}</div>}
         </div>
       </div>
       <div className="row-tight small">
-        {running ? <span className="muted">{tr('Läuft seit')} {fmtDuration(now - s.proc.startedAt)}</span> : <span className="muted">{tr('Der Server ist gestoppt.')}</span>}
+        {running ? <span className="muted">{T('Running since')} {fmtDuration(now - s.proc.startedAt)}</span> : <span className="muted">{T('The server is stopped.')}</span>}
         <span className="grow" />
         <Btn className="xs" icon={ListTree} onClick={() => setOpen(true)}>Details</Btn>
       </div>
@@ -69,17 +69,17 @@ export function HealthSummary({ s }) {
 
 // Gruppen der Bridge (Thread-Namen) → verständliche Namen
 const GROUPS = {
-  main: ['Spiel-Ticks (Haupt-Thread)', 'Kreaturen, Redstone, Blöcke und alles, was Plugins im Haupt-Thread tun. Bei 100 % eines Kerns sinken die TPS.'],
-  chunks: ['Chunks laden & erzeugen', 'Gelände erzeugen, Chunks lesen und speichern – hoch beim Erkunden und Vorgenerieren.'],
-  network: ['Netzwerk', 'Verbindungen der Spieler, Pakete, Anmeldung.'],
-  async: ['Plugin-Hintergrundaufgaben', 'Aufgaben, die Plugins neben dem Spiel laufen lassen.'],
-  log: ['Konsole & Protokoll', ''],
-  other: ['Sonstiges', 'Weitere Threads (z. B. Wächter, Zeitgeber).'],
-  jvm: ['Java intern (Müllsammler, Übersetzer)', 'Speicher aufräumen und Code übersetzen – steigt, wenn der RAM knapp wird.'],
+  main: ['Game ticks (main thread)', 'Mobs, redstone, blocks and everything plugins do on the main thread. At 100 % of a core the TPS drop.'],
+  chunks: ['Loading & generating chunks', 'Generating terrain, reading and saving chunks – high while exploring and pre-generating.'],
+  network: ['Network', 'Player connections, packets, login.'],
+  async: ['Plugin background tasks', 'Tasks plugins run alongside the game.'],
+  log: ['Console & log', ''],
+  other: ['Other', 'Other threads (e.g. watchdog, timers).'],
+  jvm: ['Java internals (garbage collector, compiler)', 'Cleaning up memory and compiling code – rises when RAM runs short.'],
 };
 const POOLS = [
-  [/eden|young/i, 'Neue Objekte'], [/survivor/i, 'Überlebende Objekte'], [/old|tenured/i, 'Langlebige Objekte'],
-  [/metaspace/i, 'Klassen (Metaspace)'], [/compressed class/i, 'Klassen-Zeiger'], [/code/i, 'Übersetzter Code'],
+  [/eden|young/i, 'New objects'], [/survivor/i, 'Surviving objects'], [/old|tenured/i, 'Long-lived objects'],
+  [/metaspace/i, 'Classes (Metaspace)'], [/compressed class/i, 'Class pointers'], [/code/i, 'Compiled code'],
 ];
 const poolLabel = (n) => { const hit = POOLS.find(([re]) => re.test(n)); return hit ? hit[1] : n; };
 
@@ -87,14 +87,14 @@ const poolLabel = (n) => { const hit = POOLS.find(([re]) => re.test(n)); return 
 function tips(h) {
   const out = [];
   const j = h.jvm;
-  if (j && j.heap && j.heap.max > 0 && j.heap.used / j.heap.max > 0.85) out.push(tr(`Der Java-Speicher ist zu ${Math.round((j.heap.used / j.heap.max) * 100)} % voll – erhöhe „Max. RAM“ unter Einstellungen → Speicher & Java oder verringere die Sichtweite.`));
+  if (j && j.heap && j.heap.max > 0 && j.heap.used / j.heap.max > 0.85) out.push(T(`Java memory is ${Math.round((j.heap.used / j.heap.max) * 100)} % full – raise “Max. RAM” under Settings → Memory & Java or lower the view distance.`));
   const main = j && (j.threads || []).find((g) => g.group === 'main');
-  if (main && main.pct > 85) out.push(tr(`Der Haupt-Thread ist fast voll ausgelastet (${pctText(main.pct)} eines Kerns) – Sichtweite (${h.config.viewDistance || '?'}) und Simulationsweite (${h.config.simulationDistance || '?'}) verringern oder viele Kreaturen und Redstone prüfen.`));
-  if (h.system.totalMem && h.system.memUsed / h.system.totalMem > 0.92) out.push(tr('Der PC hat kaum noch freien RAM – andere Programme schließen oder dem Server weniger RAM geben, sonst lagert Windows aus und alles wird langsam.'));
-  if (h.config.memMax > h.system.totalMem * 0.8) out.push(tr('„Max. RAM“ ist größer als 80 % des PC-Speichers – für Windows und andere Programme bleibt zu wenig.'));
+  if (main && main.pct > 85) out.push(T(`The main thread is almost fully busy (${pctText(main.pct)} of a core) – lower view distance (${h.config.viewDistance || '?'}) and simulation distance (${h.config.simulationDistance || '?'}) or check for many mobs and redstone.`));
+  if (h.system.totalMem && h.system.memUsed / h.system.totalMem > 0.92) out.push(T('The PC is almost out of free RAM – close other programs or give the server less RAM, otherwise Windows starts swapping and everything slows down.'));
+  if (h.config.memMax > h.system.totalMem * 0.8) out.push(T('“Max. RAM” is more than 80 % of the PC’s memory – too little is left for Windows and other programs.'));
   const ents = j ? (j.worlds || []).reduce((n, w) => n + Math.max(0, w.entities || 0), 0) : 0;
-  if (ents > 3000) out.push(tr(`${ents} Kreaturen und Objekte sind geladen – viele Tiere auf engem Raum oder liegende Gegenstände kosten Rechenzeit.`));
-  if (h.disk && h.disk.logs > 1024 ** 3) out.push(tr(`Protokolle und Absturzberichte belegen ${fmtBytes(h.disk.logs)} – unter Dateien → logs aufräumen.`));
+  if (ents > 3000) out.push(T(`${ents} mobs and entities are loaded – many animals in a small space or items on the ground cost processing time.`));
+  if (h.disk && h.disk.logs > 1024 ** 3) out.push(T(`Logs and crash reports take up ${fmtBytes(h.disk.logs)} – clean up under Files → logs.`));
   return out;
 }
 
@@ -115,10 +115,10 @@ export function HealthSheet({ s, onClose }) {
     return () => { alive.current = false; clearTimeout(t); };
   }, [s.id]);
   const installBridge = async () => {
-    try { await post(`/mc/servers/${s.id}/live-update/bridge`); toast.success(tr('HostwerkBridge liegt bereit – aktiv nach dem nächsten Neustart des Servers.')); window.dispatchEvent(new CustomEvent('hw:mc-plugins', { detail: { id: s.id } })); } catch (e) { toast.error(e.message); }
+    try { await post(`/mc/servers/${s.id}/live-update/bridge`); toast.success(T('HostwerkBridge is in place – active after the next server restart.')); window.dispatchEvent(new CustomEvent('hw:mc-plugins', { detail: { id: s.id } })); } catch (e) { toast.error(e.message); }
   };
   return (
-    <SideSheet size="wide" title={tr(`Zustand: ${s.name}`)} subtitle={tr('Was wie viel CPU, Arbeitsspeicher und Platz braucht')} onClose={onClose}>
+    <SideSheet size="wide" title={T(`Health: ${s.name}`)} subtitle={T('What uses how much CPU, memory and disk space')} onClose={onClose}>
       {!h ? (err ? <Callout kind="err">{err}</Callout> : <Loading />) : <HealthBody h={h} s={s} threads={threads} setThreads={setThreads} installBridge={installBridge} />}
     </SideSheet>
   );
@@ -133,25 +133,25 @@ function HealthBody({ h, s, threads, setThreads, installBridge }) {
   const sysCpu = h.system.cpu || 0;
   const restCpu = Math.max(0, sysCpu - h.proc.cpu - othersCpu);
   const pcCpu = [
-    { v: h.proc.cpu, cls: 'c1', label: tr('Dieser Server'), hint: pctText(h.proc.cpu) },
-    { v: othersCpu, cls: 'c2', label: tr('Andere Hostwerk-Dienste'), hint: pctText(othersCpu) },
-    { v: restCpu, cls: 'c3', label: tr('Andere Programme'), hint: pctText(restCpu) },
+    { v: h.proc.cpu, cls: 'c1', label: T('This server'), hint: pctText(h.proc.cpu) },
+    { v: othersCpu, cls: 'c2', label: T('Other Hostwerk services'), hint: pctText(othersCpu) },
+    { v: restCpu, cls: 'c3', label: T('Other programs'), hint: pctText(restCpu) },
   ];
   const hwMem = othersMem + (h.hostwerk || 0);
   const restMem = Math.max(0, h.system.memUsed - h.proc.memory - hwMem);
   const pcMem = [
-    { v: h.proc.memory, cls: 'c1', label: tr('Dieser Server'), hint: gb(h.proc.memory) },
-    { v: hwMem, cls: 'c2', label: tr('Hostwerk & andere Dienste'), hint: gb(hwMem) },
-    { v: restMem, cls: 'c3', label: tr('Andere Programme'), hint: gb(restMem) },
-    { v: h.system.totalMem - h.system.memUsed, cls: 'c0', label: tr('Frei'), hint: gb(h.system.totalMem - h.system.memUsed) },
+    { v: h.proc.memory, cls: 'c1', label: T('This server'), hint: gb(h.proc.memory) },
+    { v: hwMem, cls: 'c2', label: T('Hostwerk & other services'), hint: gb(hwMem) },
+    { v: restMem, cls: 'c3', label: T('Other programs'), hint: gb(restMem) },
+    { v: h.system.totalMem - h.system.memUsed, cls: 'c0', label: T('Free'), hint: gb(h.system.totalMem - h.system.memUsed) },
   ];
   // RAM des Servers: Heap belegt / reserviert, Nicht-Heap, Rest (Threads, Netzwerk-Puffer, native Bibliotheken)
   const rss = h.proc.memory || 0;
   const memParts = j ? [
-    { v: j.heap.used, cls: 'c1', label: tr('Java-Heap belegt'), hint: gb(j.heap.used) },
-    { v: Math.max(0, j.heap.committed - j.heap.used), cls: 'c4', label: tr('Heap reserviert, gerade frei'), hint: gb(Math.max(0, j.heap.committed - j.heap.used)) },
-    { v: j.nonHeap.committed, cls: 'c2', label: tr('Klassen & Code'), hint: gb(j.nonHeap.committed) },
-    { v: Math.max(0, rss - j.heap.committed - j.nonHeap.committed), cls: 'c3', label: tr('Threads, Puffer, Bibliotheken'), hint: gb(Math.max(0, rss - j.heap.committed - j.nonHeap.committed)) },
+    { v: j.heap.used, cls: 'c1', label: T('Java heap used'), hint: gb(j.heap.used) },
+    { v: Math.max(0, j.heap.committed - j.heap.used), cls: 'c4', label: T('Heap reserved, currently free'), hint: gb(Math.max(0, j.heap.committed - j.heap.used)) },
+    { v: j.nonHeap.committed, cls: 'c2', label: T('Classes & code'), hint: gb(j.nonHeap.committed) },
+    { v: Math.max(0, rss - j.heap.committed - j.nonHeap.committed), cls: 'c3', label: T('Threads, buffers, libraries'), hint: gb(Math.max(0, rss - j.heap.committed - j.nonHeap.committed)) },
   ] : [];
   // CPU im Server: Gruppen der Bridge (100 = ein Kern) + Java intern als Rest der Prozess-CPU
   const groups = j ? (j.threads || []).filter((g) => g.pct != null) : [];
@@ -162,23 +162,23 @@ function HealthBody({ h, s, threads, setThreads, installBridge }) {
   const tipList = tips(h);
   const disk = h.disk;
   const diskParts = disk ? [
-    { v: disk.worlds, cls: 'c1', label: tr('Welten'), hint: gb(disk.worlds) },
-    { v: disk.plugins, cls: 'c2', label: s.content === 'mods' ? tr('Mods') : tr('Plugins'), hint: gb(disk.plugins) },
-    { v: disk.libraries, cls: 'c4', label: tr('Server-Software'), hint: gb(disk.libraries) },
-    { v: disk.logs, cls: 'c5', label: tr('Protokolle'), hint: gb(disk.logs) },
-    { v: disk.other, cls: 'c3', label: tr('Sonstiges'), hint: gb(disk.other) },
+    { v: disk.worlds, cls: 'c1', label: T('Worlds'), hint: gb(disk.worlds) },
+    { v: disk.plugins, cls: 'c2', label: s.content === 'mods' ? T('Mods') : T('Plugins'), hint: gb(disk.plugins) },
+    { v: disk.libraries, cls: 'c4', label: T(T('Server software')), hint: gb(disk.libraries) },
+    { v: disk.logs, cls: 'c5', label: T('Logs'), hint: gb(disk.logs) },
+    { v: disk.other, cls: 'c3', label: T('Other'), hint: gb(disk.other) },
   ] : [];
   const plugins = j ? (j.plugins || []).filter((p) => p.tasks || p.workers || p.listeners).sort((a, b) => (b.workers * 10 + b.tasks) - (a.workers * 10 + a.tasks) || b.listeners - a.listeners) : [];
   return (
     <div className="stack hb-sheet">
-      <div className="row-tight"><StatusPill state={s.proc.state} /><span className="tiny muted">{tr('Aktualisiert sich alle paar Sekunden.')}</span></div>
-      {tipList.length > 0 && <Callout kind="warn" icon={Lightbulb} title={tr('Was helfen würde')}>{tipList.map((t, i) => <div key={i}>{t}</div>)}</Callout>}
+      <div className="row-tight"><StatusPill state={s.proc.state} /><span className="tiny muted">{T('Updates every few seconds.')}</span></div>
+      {tipList.length > 0 && <Callout kind="warn" icon={Lightbulb} title={T('What would help')}>{tipList.map((t, i) => <div key={i}>{t}</div>)}</Callout>}
 
       <section className="hb-sec">
-        <h4><Cpu size={15} />{tr('CPU des PCs')} <span className="muted">{pctText(sysCpu)} · {tr(`${cores} Kerne`)}</span></h4>
+        <h4><Cpu size={15} />{T('CPU of the PC')} <span className="muted">{pctText(sysCpu)} · {T(`${cores} cores`)}</span></h4>
         <StackBar total={100} parts={pcCpu} />
         <Legend parts={pcCpu} />
-        <h4><MemoryStick size={15} />{tr('Arbeitsspeicher des PCs')} <span className="muted">{gb(h.system.memUsed)} / {gb(h.system.totalMem)}</span></h4>
+        <h4><MemoryStick size={15} />{T('Memory of the PC')} <span className="muted">{gb(h.system.memUsed)} / {gb(h.system.totalMem)}</span></h4>
         <StackBar total={h.system.totalMem} parts={pcMem} />
         <Legend parts={pcMem} />
         {h.others.length > 0 && (
@@ -188,58 +188,58 @@ function HealthBody({ h, s, threads, setThreads, installBridge }) {
         )}
       </section>
 
-      {!h.running ? <Callout kind="info">{tr('Der Server ist gestoppt – die Aufschlüsselung von CPU und Arbeitsspeicher erscheint, sobald er läuft.')}</Callout> : !j && (
-        <Callout kind="info" icon={Info} dismissible={false} title={h.bridgeStats ? tr('Werte aus dem Server kommen gleich …') : tr('Genauere Werte mit der HostwerkBridge')}>
-          {h.bridgeStats ? tr('Die Bridge antwortet nach dem Laden der Welt.') : <>{tr('Ohne Hostwerks Helfer-Plugin sieht Hostwerk nur den ganzen Prozess. Mit HostwerkBridge (1.2 oder neuer) siehst du Java-Speicher, CPU je Aufgabe, Welten und Plugins.')}{s.pluginsSupported && <div style={{ marginTop: 6 }}><Btn className="xs primary" icon={Download} onClick={installBridge}>{h.bridge ? tr('Bridge aktualisieren') : tr('Bridge installieren')}</Btn></div>}</>}
+      {!h.running ? <Callout kind="info">{T('The server is stopped – the CPU and memory breakdown appears once it is running.')}</Callout> : !j && (
+        <Callout kind="info" icon={Info} dismissible={false} title={h.bridgeStats ? T('Values from the server are on their way …') : T('More detail with HostwerkBridge')}>
+          {h.bridgeStats ? T('The bridge answers once the world has loaded.') : <>{T('Without Hostwerk’s helper plugin, Hostwerk only sees the whole process. With HostwerkBridge (1.2 or newer) you see Java memory, CPU per task, worlds and plugins.')}{s.pluginsSupported && <div style={{ marginTop: 6 }}><Btn className="xs primary" icon={Download} onClick={installBridge}>{h.bridge ? T('Update bridge') : T('Install bridge')}</Btn></div>}</>}
         </Callout>
       )}
 
       {h.running && (
         <section className="hb-sec">
-          <h4><MemoryStick size={15} />{tr('Arbeitsspeicher des Servers')} <span className="muted">{gb(rss)}{j ? ` · ${tr('Heap-Grenze')} ${gb(j.heap.max)}` : ` · ${tr('Max. RAM')} ${gb(h.config.memMax)}`}</span></h4>
+          <h4><MemoryStick size={15} />{T('Memory of the server')} <span className="muted">{gb(rss)}{j ? ` · ${T('Heap limit')} ${gb(j.heap.max)}` : ` · ${T('Max. RAM')} ${gb(h.config.memMax)}`}</span></h4>
           {j ? <>
             <StackBar total={Math.max(rss, j.heap.committed + j.nonHeap.committed)} parts={memParts} />
             <Legend parts={memParts} />
             <div className="hb-meter">
-              <span className="small">{tr('Java-Heap belegt')}</span>
+              <span className="small">{T('Java heap used')}</span>
               <div className="hb-bar thin"><span className={`hb-seg ${j.heap.used / j.heap.max > 0.85 ? 'warn' : 'c1'}`} style={{ width: `${Math.min(100, (j.heap.used / Math.max(1, j.heap.max)) * 100)}%` }} /></div>
               <span className="mono tiny">{Math.round((j.heap.used / Math.max(1, j.heap.max)) * 100)} %</span>
             </div>
             <div className="hb-list">
               {/* Bereiche mit gleichem Namen zusammenfassen (z. B. drei Code-Cache-Bereiche → „Übersetzter Code“) */}
-              {Object.values((j.pools || []).filter((p) => p.used > 0).reduce((acc, p) => { const l = poolLabel(p.name); const x = acc[l] || (acc[l] = { label: l, used: 0, heap: p.heap, names: [] }); x.used += p.used; x.names.push(p.name); return acc; }, {})).sort((a, b) => b.used - a.used).map((p) => <div key={p.label} className="hb-row" title={p.names.join(', ')}><span className="grow ellipsis">{tr(p.label)} {p.heap && <span className="tiny muted">Heap</span>}</span><span className="mono tiny">{gb(p.used)}</span></div>)}
+              {Object.values((j.pools || []).filter((p) => p.used > 0).reduce((acc, p) => { const l = poolLabel(p.name); const x = acc[l] || (acc[l] = { label: l, used: 0, heap: p.heap, names: [] }); x.used += p.used; x.names.push(p.name); return acc; }, {})).sort((a, b) => b.used - a.used).map((p) => <div key={p.label} className="hb-row" title={p.names.join(', ')}><span className="grow ellipsis">{T(p.label)} {p.heap && <span className="tiny muted">Heap</span>}</span><span className="mono tiny">{gb(p.used)}</span></div>)}
             </div>
-            {(j.gc || []).length > 0 && <div className="tiny muted">{tr('Müllsammler')}: {(j.gc || []).map((g) => `${g.name} ${g.count}× (${String(Math.round(g.ms / 100) / 10).replace('.', ',')} s)`).join(' · ')}</div>}
-          </> : <StackBar total={h.config.memMax} parts={[{ v: rss, cls: 'c1', label: tr('Prozess'), hint: gb(rss) }]} />}
+            {(j.gc || []).length > 0 && <div className="tiny muted">{T('Garbage collector')}: {(j.gc || []).map((g) => `${g.name} ${g.count}× (${String(Math.round(g.ms / 100) / 10).replace('.', ',')} s)`).join(' · ')}</div>}
+          </> : <StackBar total={h.config.memMax} parts={[{ v: rss, cls: 'c1', label: T('Process'), hint: gb(rss) }]} />}
         </section>
       )}
 
       {cpuRows.length > 0 && (
         <section className="hb-sec">
-          <h4><Gauge size={15} />{tr('CPU des Servers')} <span className="muted">{pctText(procCores)} {tr('eines Kerns')} · {pctText(h.proc.cpu)} {tr('des PCs')}</span></h4>
+          <h4><Gauge size={15} />{T('CPU of the server')} <span className="muted">{pctText(procCores)} {T('of one core')} · {pctText(h.proc.cpu)} {T('of the PC')}</span></h4>
           <div className="hb-list">
             {cpuRows.map((r) => {
-              const g = r.group.startsWith('plugin:') ? [`Plugin: ${r.group.slice(7)}`, 'Eigene Threads dieses Plugins.'] : GROUPS[r.group] || [r.group, ''];
+              const g = r.group.startsWith('plugin:') ? [`Plugin: ${r.group.slice(7)}`, T('This plugin’s own threads.')] : GROUPS[r.group] || [r.group, ''];
               return (
-                <div key={r.group} className="hb-row cpu" title={g[1] ? tr(g[1]) : undefined}>
-                  <span className="hb-name ellipsis">{tr(g[0])}{r.count ? <span className="tiny muted"> · {r.count}</span> : null}</span>
+                <div key={r.group} className="hb-row cpu" title={g[1] ? T(g[1]) : undefined}>
+                  <span className="hb-name ellipsis">{T(g[0])}{r.count ? <span className="tiny muted"> · {r.count}</span> : null}</span>
                   <div className="hb-bar thin grow"><span className={`hb-seg ${r.group === 'main' && r.pct > 85 ? 'warn' : r.group === 'jvm' ? 'c4' : 'c1'}`} style={{ width: `${Math.min(100, (r.pct / maxRow) * 100)}%` }} /></div>
                   <span className="mono tiny hb-num">{pctText(r.pct)}</span>
                 </div>
               );
             })}
           </div>
-          <div className="tiny muted">{tr('100 % = ein voller CPU-Kern. Plugins, die im Haupt-Thread arbeiten, zählen zu den Spiel-Ticks – genau je Plugin misst das Plugin „spark“.')}</div>
-          {(j.topThreads || []).length > 0 && <button type="button" className="link-btn tiny" onClick={() => setThreads(!threads)}>{threads ? tr('Einzelne Threads ausblenden') : tr('Einzelne Threads zeigen')}</button>}
+          <div className="tiny muted">{T('100 % = one full CPU core. Plugins working on the main thread count as game ticks – the “spark” plugin measures each plugin exactly.')}</div>
+          {(j.topThreads || []).length > 0 && <button type="button" className="link-btn tiny" onClick={() => setThreads(!threads)}>{threads ? T('Hide individual threads') : T('Show individual threads')}</button>}
           {threads && <div className="hb-list">{j.topThreads.map((t) => <div key={t.name} className="hb-row"><span className="grow ellipsis mono tiny" title={t.name}>{t.name}</span><span className="mono tiny">{pctText(t.pct)}</span></div>)}</div>}
         </section>
       )}
 
       {j && (j.worlds || []).length > 0 && (
         <section className="hb-sec">
-          <h4><Globe2 size={15} />{tr('Welten')} <span className="muted">{tr(`${j.players} Spieler online`)}</span></h4>
+          <h4><Globe2 size={15} />{T('Worlds')} <span className="muted">{T(`${j.players} players online`)}</span></h4>
           <table className="table compact">
-            <thead><tr><th>{tr('Dimension')}</th><th className="num">Chunks</th><th className="num">{tr('Kreaturen & Objekte')}</th><th className="num">{tr('Blockobjekte')}</th><th className="num">{tr('Spieler')}</th></tr></thead>
+            <thead><tr><th>{T('Dimension')}</th><th className="num">Chunks</th><th className="num">{T('Mobs & entities')}</th><th className="num">{T('Block entities')}</th><th className="num">{T('Players')}</th></tr></thead>
             <tbody>{j.worlds.map((w) => {
               const key = /:/.test(w.key || '') ? w.key : { normal: 'minecraft:overworld', nether: 'minecraft:the_nether', the_end: 'minecraft:the_end' }[w.env] || `custom:${w.name}`;
               return <tr key={w.name}><td><span className="row-tight"><McDimIcon id={key} info={dimInfo(key)} size={20} /><span>{dimLabel(key, dimInfo(key))}</span><span className="tiny muted mono">{w.name}</span></span></td><td className="num">{w.chunks >= 0 ? w.chunks : '–'}</td><td className="num">{w.entities >= 0 ? w.entities : '–'}</td><td className="num">{w.tiles >= 0 ? w.tiles : '–'}</td><td className="num">{w.players}</td></tr>;
@@ -251,9 +251,9 @@ function HealthBody({ h, s, threads, setThreads, installBridge }) {
 
       {plugins.length > 0 && (
         <section className="hb-sec">
-          <h4><Puzzle size={15} />Plugins <span className="muted">{tr(`${(j.plugins || []).length} geladen`)}</span></h4>
+          <h4><Puzzle size={15} />Plugins <span className="muted">{T(`${(j.plugins || []).length} pulled`)}</span></h4>
           <table className="table compact">
-            <thead><tr><th>Plugin</th><th className="num" title={tr('Wiederkehrende bzw. geplante Aufgaben')}>{tr('Aufgaben')}</th><th className="num" title={tr('Gerade laufende Hintergrund-Aufgaben')}>{tr('Im Hintergrund')}</th><th className="num" title={tr('Auf wie viele Spiel-Ereignisse das Plugin reagiert')}>Listener</th></tr></thead>
+            <thead><tr><th>Plugin</th><th className="num" title={T('Repeating or scheduled tasks')}>{T('Tasks')}</th><th className="num" title={T('Background tasks running right now')}>{T('In background')}</th><th className="num" title={T('How many game events the plugin reacts to')}>Listener</th></tr></thead>
             <tbody>{plugins.slice(0, 30).map((p) => <tr key={p.name} style={{ opacity: p.enabled ? 1 : 0.55 }}><td>{p.name}</td><td className="num">{p.tasks}</td><td className="num">{p.workers}</td><td className="num">{p.listeners}</td></tr>)}</tbody>
           </table>
         </section>
@@ -261,7 +261,7 @@ function HealthBody({ h, s, threads, setThreads, installBridge }) {
 
       {disk && (
         <section className="hb-sec">
-          <h4><HardDrive size={15} />{tr('Speicherplatz')} <span className="muted">{gb(disk.total)}{disk.backups ? ` · ${tr('Sicherungen')} ${gb(disk.backups)}` : ''}</span></h4>
+          <h4><HardDrive size={15} />{T('Disk space')} <span className="muted">{gb(disk.total)}{disk.backups ? ` · ${T('Backups')} ${gb(disk.backups)}` : ''}</span></h4>
           <StackBar total={disk.total} parts={diskParts} />
           <Legend parts={diskParts} />
         </section>
