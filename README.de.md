@@ -2,6 +2,8 @@
 
 # Minecraft-Server
 
+> **Seit 1.1 mit MOTD-Studio:** Die Beschreibung in der Serverliste gestaltest du direkt in der Übersicht jedes Servers (Farben, Verläufe, Platzhalter, Varianten, Vorschau wie im Spiel); der große Editor mit allen Farbcodes ist der Reiter „MOTD-Studio“ in der Serverliste. Wer die Erweiterung „MOTD-Studio“ hatte, bekommt diese Fassung automatisch; Varianten bleiben.
+
 Minecraft-Server mit Paper, Purpur, Folia, Fabric, NeoForge, Forge, Velocity, Bedrock und Modpacks: anlegen oder übernehmen, Konsole, Spieler, Plugins und Mods aus Modrinth und Hangar, Plugin-Live-Update ohne Neustart, Welten mit allen Dimensionen, Zustand im Detail, Sicherungen, Zeitplan, sichere Updates mit Probelauf.
 
 [English](README.md) · Offizielle [Hostwerk](https://github.com/Passimoritz/hostwerk-public)-Erweiterung (native Erweiterung, ab Hostwerk 3.1)

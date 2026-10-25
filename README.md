@@ -2,6 +2,8 @@
 
 # Minecraft servers
 
+> **Since 1.1 with the MOTD studio:** design the description in the server list right in the overview of every server (colours, gradients, placeholders, variants, a preview like in the game); the big editor with all colour codes is the tab “MOTD studio” in the server list. Anyone who had the “MOTD studio” extension gets this version automatically; variants stay.
+
 Minecraft servers with Paper, Purpur, Folia, Fabric, NeoForge, Forge, Velocity, Bedrock and modpacks: create or take over, console, players, plugins and mods from Modrinth and Hangar, plugin live update without restart, worlds with all dimensions, health in detail, backups, schedule, safe updates with a trial run.
 
 [Deutsch](README.de.md) · An official [Hostwerk](https://github.com/Passimoritz/hostwerk-public) extension (native extension, Hostwerk 3.1 or newer)

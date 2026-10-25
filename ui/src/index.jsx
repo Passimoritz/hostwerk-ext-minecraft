@@ -1,3 +1,7 @@
+import { Sparkles } from 'lucide-react';
+import { useApi } from '@hostwerk/api';
+import { Loading } from '@hostwerk/ui';
+import { ExtTabView } from '@hostwerk/kit';
 import { t } from '@hostwerk/i18n';
 import Minecraft from './Minecraft';
 import MinecraftServer from './MinecraftServer';
@@ -12,6 +16,9 @@ import './style.css';
  */
 function Page({ path = [], query = '' }) {
   const [first, second] = path;
+  // 1.1: „MOTD gestalten …“ (Rechtsklick, Schnellsuche – früher Erweiterung „MOTD-Studio“) → Übersicht des Servers, dort steht der Abschnitt
+  const q = new URLSearchParams(String(query || '').replace(/^\?/, ''));
+  if (!first && q.get('action') === 'edit' && /^[\w-]+$/.test(q.get('target') || '')) { location.replace(`#/mc/${q.get('target')}`); return null; }
   if (first && first !== 'import' && !first.startsWith('x-')) return <MinecraftServer id={first} tab={second} query={query} />;
   return <Minecraft tab={first} />;
 }
@@ -30,7 +37,18 @@ const nav = {
   },
 };
 
-// Dateivorschau: Minecraft-Daten (level.dat, Spieler, Strukturen, Schematics) als NBT-Baum
-const slots = { 'files.preview': [{ id: 'mc-nbt', title: t('NBT tree'), match: NBT_FILES, Component: McNbtView }] };
+/** 1.1: Reiter „MOTD-Studio“ in der Serverliste – der große Editor (bis 1.5 eigene Erweiterung „MOTD-Studio“), im Rahmen. */
+function MotdTab() {
+  const m = useApi('/extmarket', [], { live: false });
+  const ext = m.data && (m.data.installed || []).find((x) => x.id === 'minecraft');
+  if (!ext) return <Loading />;
+  return <ExtTabView item={{ ext, tab: { file: 'page-motd/index.html' } }} kind="minecraft" id={null} />;
+}
+
+const slots = {
+  // Dateivorschau: Minecraft-Daten (level.dat, Spieler, Strukturen, Schematics) als NBT-Baum
+  'files.preview': [{ id: 'mc-nbt', title: t('NBT tree'), match: NBT_FILES, Component: McNbtView }],
+  'minecraft.tabs': [{ id: 'motd', title: 'MOTD studio', icon: Sparkles, Component: MotdTab, order: 80 }],
+};
 
 export default { pages: { main: Page }, nav, slots };

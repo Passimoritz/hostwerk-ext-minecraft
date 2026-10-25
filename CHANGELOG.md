@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0
+
+- The former extension "MOTD studio" lives here now (SDK 3.8 `replaces`): the MOTD section in the overview of every Minecraft server, the big editor as the tab "MOTD studio" in the server list (with the colour codes) and "Design MOTD …" in the right-click menu and the quick search. Saved variants are taken over once; Hostwerk installs this version for everyone who had the MOTD studio and removes it. / Die frühere Erweiterung „MOTD-Studio“ steckt jetzt hier (SDK 3.8 `replaces`): der MOTD-Abschnitt in der Übersicht jedes Minecraft-Servers, der große Editor als Reiter „MOTD-Studio“ in der Serverliste (mit den Farbcodes) und „MOTD gestalten …“ im Rechtsklick-Menü und in der Schnellsuche. Gespeicherte Varianten werden einmal übernommen; Hostwerk installiert diese Fassung für alle mit dem MOTD-Studio und entfernt es.
+
 ## 1.0.3
 
 - HostwerkBridge 1.3: own icon in the Hostwerk style for the Plugins tab, up-to-date description in English and German, runs on servers from 1.18 (Java 17), reproducible build in one step (`node tools/bridge.js`). / HostwerkBridge 1.3: eigenes Symbol im Hostwerk-Stil für den Plugins-Tab, aktuelle Beschreibung auf Englisch und Deutsch, läuft auf Servern ab 1.18 (Java 17), reproduzierbarer Build in einem Schritt (`node tools/bridge.js`).
