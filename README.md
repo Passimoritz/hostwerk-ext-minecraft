@@ -4,7 +4,7 @@
 
 Minecraft servers with Paper, Purpur, Folia, Fabric, NeoForge, Forge, Velocity, Bedrock and modpacks: create or take over, console, players, plugins and mods from Modrinth and Hangar, plugin live update without restart, worlds with all dimensions, health in detail, backups, schedule, safe updates with a trial run.
 
-[Deutsch](README.de.md) · An official [Hostwerk](https://github.com/Passimoritz/hostwerk-public) extension (SDK 3.4, native extension)
+[Deutsch](README.de.md) · An official [Hostwerk](https://github.com/Passimoritz/hostwerk-public) extension (native extension, Hostwerk 3.1 or newer)
 
 ![Screenshot](docs/screenshot.png)
 
