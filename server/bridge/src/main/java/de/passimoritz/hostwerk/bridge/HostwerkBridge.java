@@ -20,12 +20,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.zip.ZipFile;
 
 import org.bukkit.Bukkit;
@@ -34,6 +37,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.command.PluginIdentifiableCommand;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -48,23 +52,29 @@ import org.bukkit.scheduler.BukkitWorker;
 import org.bukkit.util.CachedServerIcon;
 
 /**
- * Hostwerk-Bridge: lädt ein Plugin im laufenden Server vollständig neu.
+ * HostwerkBridge: Hostwerks Helfer-Plugin im Minecraft-Server. Hostwerk spricht es über die Konsole an
+ * („hostwerk …“, nur von der Konsole aus), die Antworten stehen als Zeile „[HW] …“ im Log – Hostwerk liest sie mit.
  *
- * Ablauf von „hostwerk reload &lt;Name&gt; &lt;neue.jar&gt;“:
- *   1. prüfen, ob das sicher geht (keine abhängigen Plugins, kein Paper-Plugin mit Bootstrapper)
- *   2. altes Plugin deaktivieren und restlos entladen (Befehle, Listener, Aufgaben, Dienste, Kanäle, Klassenlader)
- *   3. alte JAR durch die neue ersetzen, laden und aktivieren, Befehle an die Spieler neu senden
+ * Plugin-Live-Update – „hostwerk reload &lt;Name&gt; &lt;neue.jar&gt;“:
+ *   1. prüfen, ob das sicher geht („hostwerk check &lt;Name&gt;“ fragt nur das): kein Paper-Plugin (paper-plugin.yml),
+ *      und alle Plugins, die davon abhängen (depend/softdepend, auch über Umwege), lassen sich ebenfalls neu laden
+ *   2. abhängige Plugins und das alte Plugin deaktivieren und restlos entladen
+ *      (Befehle, Listener, Aufgaben, Dienste, Kanäle, Klassenlader, Paper-Register)
+ *   3. alte JAR durch die neue ersetzen, laden und aktivieren, danach die abhängigen Plugins wieder laden,
+ *      Befehle an die Spieler neu senden
+ *   Geht etwas schief, meldet die Bridge „RELOAD FAIL“ und Hostwerk startet den Server sicher neu.
  *
- * „hostwerk tps“ meldet die Ticks pro Sekunde (1, 5, 15 Minuten) und die mittlere Tick-Dauer – Hostwerk fragt das
- * regelmäßig ab und versteckt die Zeile in der Konsole (Verlauf unter „Übersicht“).
+ * Zustand – „hostwerk tps“ meldet die Ticks pro Sekunde (1, 5, 15 Minuten) und die mittlere Tick-Dauer,
+ * „hostwerk stats [full]“ die Aufschlüsselung für Hostwerks Zustand-Ansicht (Java-Speicher, Müllsammler,
+ * CPU je Thread-Gruppe, Welten, Plugins). Hostwerk fragt das regelmäßig ab und blendet die Zeilen in der Konsole aus.
  *
- * Ab 1.2: „hostwerk stats [full]“ liefert die Aufschlüsselung für Hostwerks Zustand-Ansicht (Speicher, CPU je Thread-Gruppe,
- * Welten, Plugins), „hostwerk motd &lt;Base64&gt;“ und „hostwerk icon [clear]“ ändern Beschreibung und Symbol in der Serverliste
- * sofort – ohne Neustart (Minecraft selbst liest beides nur beim Start).
+ * Serverliste – „hostwerk motd &lt;Base64&gt;“ und „hostwerk icon [clear]“ ändern Beschreibung und Symbol sofort,
+ * ohne Neustart (Minecraft selbst liest beides nur beim Start).
  *
- * Ergebnisse stehen als Zeile „[HW] …“ in der Konsole – Hostwerk liest sie mit.
- * Geht etwas schief, meldet die Bridge „RELOAD FAIL“ und Hostwerk startet den Server sicher neu.
+ * „hostwerk ping“ beantwortet die Bridge mit ihrer Version; beim Start meldet sie „READY &lt;Version&gt;“.
  */
+// getDescription() und setMotd(String) gelten bei Paper als veraltet, laufen aber auf allen Servern ab 1.18 (auch Spigot)
+@SuppressWarnings("deprecation")
 public final class HostwerkBridge extends JavaPlugin implements Listener {
 
     /** Live gesetzte Beschreibung bzw. neu geladenes Server-Symbol – gelten für die Serverliste bis zum nächsten Neustart. */
@@ -76,9 +86,12 @@ public final class HostwerkBridge extends JavaPlugin implements Listener {
     private long lastStatsAt;
     private final Map<String, Long> lastGc = new HashMap<>();
 
+    private static final String USAGE = "Verwendung: hostwerk <ping|tps|stats [full]|motd <Base64>|icon [clear]|check <Plugin>|reload <Plugin> <Datei>>";
+
     @Override
     public void onEnable() {
-        if (getCommand("hostwerk") != null) getCommand("hostwerk").setExecutor(this);
+        PluginCommand cmd = getCommand("hostwerk");
+        if (cmd != null) cmd.setExecutor(this);
         getServer().getPluginManager().registerEvents(this, this);
         report("READY " + getDescription().getVersion());
     }
@@ -106,64 +119,78 @@ public final class HostwerkBridge extends JavaPlugin implements Listener {
             sender.sendMessage("Dieser Befehl ist nur für Hostwerk (Konsole).");
             return true;
         }
-        if (args.length >= 1 && args[0].equalsIgnoreCase("ping")) {
-            report("PONG " + getDescription().getVersion());
-            return true;
-        }
-        if (args.length >= 1 && args[0].equalsIgnoreCase("tps")) {
-            report(tps());
-            return true;
-        }
-        if (args.length >= 1 && args[0].equalsIgnoreCase("stats")) {
-            report("STATS " + stats(args.length >= 2 && args[1].equalsIgnoreCase("full")));
-            return true;
-        }
-        if (args.length >= 2 && args[0].equalsIgnoreCase("motd")) {
-            // Text kommt Base64-kodiert (UTF-8), damit Farbcodes, Leerzeichen und Zeilenumbrüche heil ankommen
-            String motd = new String(Base64.getDecoder().decode(args[1]), StandardCharsets.UTF_8);
-            motdOverride = motd;
-            boolean server = false;
-            try {
-                Method m = Bukkit.getServer().getClass().getMethod("setMotd", String.class);
-                m.invoke(Bukkit.getServer(), motd);
-                server = true;
-            } catch (Throwable ignored) {
-                // ältere Server: nur über die Serverliste (onPing)
+        String sub = args.length >= 1 ? args[0].toLowerCase(Locale.ROOT) : "";
+        switch (sub) {
+            case "ping" -> report("PONG " + getDescription().getVersion());
+            case "tps" -> report(tps());
+            case "stats" -> report("STATS " + stats(args.length >= 2 && args[1].equalsIgnoreCase("full")));
+            case "motd" -> { if (args.length >= 2) motd(args[1]); else sender.sendMessage(USAGE); }
+            case "icon" -> icon(args.length >= 2 && args[1].equalsIgnoreCase("clear"));
+            case "check" -> {
+                if (args.length < 2) { sender.sendMessage(USAGE); break; }
+                String reason = blocker(Bukkit.getPluginManager().getPlugin(args[1]), null);
+                report(reason == null ? "CHECK OK " + args[1] : "CHECK NO " + args[1] + " " + reason);
             }
-            report("MOTD OK " + (server ? "server" : "ping"));
-            return true;
-        }
-        if (args.length >= 1 && args[0].equalsIgnoreCase("icon")) {
-            File f = new File(Bukkit.getWorldContainer(), "server-icon.png");
-            try {
-                if (args.length >= 2 && args[1].equalsIgnoreCase("clear")) { iconOverride = null; iconCleared = true; report("ICON OK clear"); return true; }
-                if (!f.isFile()) { report("ICON FAIL Datei fehlt"); return true; }
-                iconOverride = Bukkit.loadServerIcon(f);
-                iconCleared = false;
-                report("ICON OK");
-            } catch (Throwable t) {
-                report("ICON FAIL " + t.getClass().getSimpleName() + ": " + String.valueOf(t.getMessage()).replace('\n', ' '));
+            case "reload" -> {
+                if (args.length < 3) { sender.sendMessage(USAGE); break; }
+                String name = args[1];
+                // Der Pfad darf Leerzeichen enthalten: alles ab dem dritten Wort
+                File staged = new File(String.join(" ", Arrays.copyOfRange(args, 2, args.length)));
+                try {
+                    reload(name, staged);
+                } catch (Throwable t) {
+                    report("RELOAD FAIL " + name + " " + oneLine(t));
+                    getLogger().log(Level.WARNING, "Live-Update fehlgeschlagen", t);
+                }
             }
-            return true;
+            default -> sender.sendMessage(USAGE);
         }
-        if (args.length >= 2 && args[0].equalsIgnoreCase("check")) {
-            String reason = blocker(Bukkit.getPluginManager().getPlugin(args[1]), null);
-            report(reason == null ? "CHECK OK " + args[1] : "CHECK NO " + args[1] + " " + reason);
-            return true;
-        }
-        if (args.length >= 3 && args[0].equalsIgnoreCase("reload")) {
-            String name = args[1];
-            File staged = new File(String.join(" ", Arrays.copyOfRange(args, 2, args.length)));
-            try {
-                reload(name, staged);
-            } catch (Throwable t) {
-                report("RELOAD FAIL " + name + " " + t.getClass().getSimpleName() + ": " + String.valueOf(t.getMessage()).replace('\n', ' '));
-                getLogger().log(java.util.logging.Level.WARNING, "Live-Update fehlgeschlagen", t);
-            }
-            return true;
-        }
-        sender.sendMessage("Verwendung: hostwerk <ping|tps|stats [full]|motd <Base64>|icon [clear]|check <Plugin>|reload <Plugin> <Datei>>");
         return true;
+    }
+
+    /** Beschreibung in der Serverliste sofort ändern. Text kommt Base64-kodiert (UTF-8), damit Farbcodes, Leerzeichen und Zeilenumbrüche heil ankommen. */
+    private void motd(String base64) {
+        String motd;
+        try {
+            motd = new String(Base64.getDecoder().decode(base64), StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            report("MOTD FAIL kein gültiges Base64");
+            return;
+        }
+        motdOverride = motd;
+        boolean server = false;
+        try {
+            Method m = Bukkit.getServer().getClass().getMethod("setMotd", String.class);
+            m.invoke(Bukkit.getServer(), motd);
+            server = true;
+        } catch (Throwable ignored) {
+            // ältere Server: nur über die Serverliste (onPing)
+        }
+        report("MOTD OK " + (server ? "server" : "ping"));
+    }
+
+    /** server-icon.png neu einlesen (oder das Symbol entfernen) – gilt sofort in der Serverliste. */
+    private void icon(boolean clear) {
+        if (clear) {
+            iconOverride = null;
+            iconCleared = true;
+            report("ICON OK clear");
+            return;
+        }
+        File f = new File(Bukkit.getWorldContainer(), "server-icon.png");
+        if (!f.isFile()) { report("ICON FAIL Datei fehlt"); return; }
+        try {
+            iconOverride = Bukkit.loadServerIcon(f);
+            iconCleared = false;
+            report("ICON OK");
+        } catch (Throwable t) {
+            report("ICON FAIL " + oneLine(t));
+        }
+    }
+
+    /** Fehler als eine Zeile („Typ: Meldung“) – Hostwerk liest die Antwort zeilenweise. */
+    private static String oneLine(Throwable t) {
+        return t.getClass().getSimpleName() + ": " + String.valueOf(t.getMessage()).replace('\r', ' ').replace('\n', ' ');
     }
 
     /*
@@ -258,11 +285,11 @@ public final class HostwerkBridge extends JavaPlugin implements Listener {
             try { entities = (int) call(w, "getEntityCount"); } catch (Throwable e) { try { entities = w.getEntities().size(); } catch (Throwable ignored) { /* Folia */ } }
             try { tiles = (int) call(w, "getTileEntityCount"); } catch (Throwable ignored) { /* nur Paper */ }
             if (full) {
-                try { for (org.bukkit.entity.Entity en : w.getEntities()) types.merge(en.getType().name().toLowerCase(java.util.Locale.ROOT), 1, Integer::sum); } catch (Throwable ignored) { /* Folia */ }
+                try { for (org.bukkit.entity.Entity en : w.getEntities()) types.merge(en.getType().name().toLowerCase(Locale.ROOT), 1, Integer::sum); } catch (Throwable ignored) { /* Folia */ }
             }
             String key = w.getName();
             try { key = String.valueOf(call(w, "getKey")); } catch (Throwable ignored) { /* vor 1.16 */ }
-            j.append("{\"name\":").append(q(w.getName())).append(",\"key\":").append(q(key)).append(",\"env\":").append(q(w.getEnvironment().name().toLowerCase(java.util.Locale.ROOT)))
+            j.append("{\"name\":").append(q(w.getName())).append(",\"key\":").append(q(key)).append(",\"env\":").append(q(w.getEnvironment().name().toLowerCase(Locale.ROOT)))
                 .append(",\"chunks\":").append(chunks).append(",\"entities\":").append(entities).append(",\"tiles\":").append(tiles).append(",\"players\":").append(w.getPlayers().size()).append('}');
         }
         j.append(']');
@@ -297,9 +324,9 @@ public final class HostwerkBridge extends JavaPlugin implements Listener {
 
     /** Thread-Name → Gruppe: main, chunks, network, async, plugin:&lt;Name&gt;, log, other. */
     private static String groupOf(String name, List<String> plugins) {
-        String n = name.toLowerCase(java.util.Locale.ROOT);
+        String n = name.toLowerCase(Locale.ROOT);
         if (n.equals("server thread") || n.startsWith("region scheduler")) return "main";
-        for (String p : plugins) if (p.length() >= 4 && n.contains(p.toLowerCase(java.util.Locale.ROOT))) return "plugin:" + p;
+        for (String p : plugins) if (p.length() >= 4 && n.contains(p.toLowerCase(Locale.ROOT))) return "plugin:" + p;
         if (n.contains("chunk") || n.startsWith("worker-main") || n.contains("worldgen") || n.contains("c2me") || n.contains("moonrise") || n.contains("tuinity")) return "chunks";
         if (n.contains("netty") || n.contains("server io") || n.contains("epoll") || n.contains("nio") || n.contains("query") || n.contains("rcon") || n.contains("user authenticator") || n.contains("velocity")) return "network";
         if (n.contains("craft scheduler") || n.contains("async task") || n.contains("craft async")) return "async";
@@ -312,7 +339,7 @@ public final class HostwerkBridge extends JavaPlugin implements Listener {
     }
 
     private static String pct(long cpuNanos, long wallNanos) {
-        return String.format(java.util.Locale.ROOT, "%.1f", wallNanos > 0 ? cpuNanos * 100.0 / wallNanos : 0.0);
+        return String.format(Locale.ROOT, "%.1f", wallNanos > 0 ? cpuNanos * 100.0 / wallNanos : 0.0);
     }
 
     private static String q(String s) {
@@ -330,7 +357,7 @@ public final class HostwerkBridge extends JavaPlugin implements Listener {
         try {
             double[] t = Bukkit.getTPS();
             double mspt = Bukkit.getAverageTickTime();
-            return String.format(java.util.Locale.ROOT, "TPS %.2f %.2f %.2f MSPT %.2f", Math.min(20, t[0]), Math.min(20, t[1]), Math.min(20, t[2]), mspt);
+            return String.format(Locale.ROOT, "TPS %.2f %.2f %.2f MSPT %.2f", Math.min(20, t[0]), Math.min(20, t[1]), Math.min(20, t[2]), mspt);
         } catch (Throwable e) {
             return "TPS NA";
         }
@@ -456,7 +483,7 @@ public final class HostwerkBridge extends JavaPlugin implements Listener {
 
         ClassLoader cl = plugin.getClass().getClassLoader();
         // Aus allen Listen/Maps des Plugin-Managers (Bukkit + Paper) entfernen
-        Set<Object> seen = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<Object> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         scrub(pm, plugin, cl, seen, 0);
         // Paper: globale Klassenlader-Registrierung
         try {
@@ -472,7 +499,7 @@ public final class HostwerkBridge extends JavaPlugin implements Listener {
         try {
             Class<?> h = Class.forName("io.papermc.paper.plugin.entrypoint.LaunchEntryPointHandler");
             Object inst = h.getField("INSTANCE").get(null);
-            scrubProviders(inst, plugin.getName(), java.util.Collections.newSetFromMap(new IdentityHashMap<>()), 0);
+            scrubProviders(inst, plugin.getName(), Collections.newSetFromMap(new IdentityHashMap<>()), 0);
         } catch (Throwable ignored) {
             // kein Paper oder anderer Aufbau – nur die Anzeige von /plugins betroffen
         }
@@ -532,7 +559,7 @@ public final class HostwerkBridge extends JavaPlugin implements Listener {
                     } catch (Exception ignored) { /* unveränderlich */ }
                 } else if (v.getClass().getName().startsWith("com.google.common.graph")) {
                     // Paper-Abhängigkeitsgraph: Knoten mit dem Plugin-Namen entfernen
-                    for (String n : new String[] { name, name.toLowerCase() }) {
+                    for (String n : new String[] { name, name.toLowerCase(Locale.ROOT) }) {
                         try { v.getClass().getMethod("removeNode", Object.class).invoke(v, n); } catch (Exception ignored) { /* nicht vorhanden */ }
                     }
                 } else {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.3
+
+- HostwerkBridge 1.3: own icon in the Hostwerk style for the Plugins tab, up-to-date description in English and German, runs on servers from 1.18 (Java 17), reproducible build in one step (`node tools/bridge.js`). / HostwerkBridge 1.3: eigenes Symbol im Hostwerk-Stil für den Plugins-Tab, aktuelle Beschreibung auf Englisch und Deutsch, läuft auf Servern ab 1.18 (Java 17), reproduzierbarer Build in einem Schritt (`node tools/bridge.js`).
+
 ## 1.0.2
 
 - New animated icon and banner in the common Hostwerk style (isometric block). / Neues animiertes Symbol und Banner im gemeinsamen Hostwerk-Stil (isometrischer Block).

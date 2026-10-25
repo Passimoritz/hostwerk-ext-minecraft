@@ -859,6 +859,9 @@ class MinecraftManager {
     }
     // Hostwerk-Bridge aktuell halten (gehört zu Hostwerk; bei gestopptem Server gefahrlos)
     if (!this.proc(id).isRunning() && out.some((p) => /^hostwerkbridge\.jar$/i.test(p.file))) { try { if (this.live.ensureBridge(id)) { const b = out.find((p) => /^hostwerkbridge\.jar$/i.test(p.file)); const full = path.join(d, b.file); Object.assign(b, { size: fs.statSync(full).size, ...((await this.readMeta(full)) || {}) }); } } catch { /* egal */ } }
+    // Beschreibung der Bridge in der Sprache der Oberfläche statt der englischen aus der plugin.yml
+    const bridge = out.find((p) => /^hostwerkbridge\.jar(\.disabled)?$/i.test(p.file));
+    if (bridge) bridge.description = this.live.bridgeDescription();
     try { this.live.syncBridge(id); } catch { /* egal */ }
     // Quellen ohne Zutun verknüpfen (Hostwerk, eigenes Projekt, plugin.yml) – ohne Netz; ein neues unbekanntes Plugin sucht Projekte neu
     try { await this.sources.freshenProjects(id, out); } catch { /* egal */ }
@@ -1462,7 +1465,7 @@ class MinecraftManager {
       if (!this.live.supported(id)) return res.json([]);
       const jar = path.join(__dirname, 'bridge', 'HostwerkBridge.jar');
       const meta = (await this.readMeta(jar).catch(() => null)) || {};
-      res.json([{ id: 'bridge', name: 'HostwerkBridge', version: meta.version || null, description: T('Connection to Hostwerk – plugin live updates without restarting the server. Part of Hostwerk and kept up to date with Hostwerk.'), icon: '/api/mc/hostwerk-plugins/bridge/icon', installed: this.live.bridgePresent(id), disabled: this.live.bridgeDisabled(id) }]);
+      res.json([{ id: 'bridge', name: 'HostwerkBridge', version: meta.version || null, description: this.live.bridgeDescription(), icon: '/api/mc/hostwerk-plugins/bridge/icon', installed: this.live.bridgePresent(id), disabled: this.live.bridgeDisabled(id) }]);
     });
     r.get('/mc/hostwerk-plugins/bridge/icon', async (req, res) => {
       const hit = await require('./pluginicon').iconFile(path.join(__dirname, 'bridge', 'HostwerkBridge.jar'), this.ctx.paths.cache).catch(() => null);

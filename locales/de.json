@@ -342,7 +342,7 @@
   "Connect": "Verbinden",
   "Connecting “{name}” …": "„{name}“ verbinden …",
   "Connection method": "Verbindungsweg",
-  "Connection to Hostwerk – plugin live updates without restarting the server. Part of Hostwerk and kept up to date with Hostwerk.": "Verbindung zu Hostwerk – Plugin-Live-Updates ohne Server-Neustart. Gehört zu Hostwerk und wird mit Hostwerk aktuell gehalten.",
+  "Hostwerk’s helper plugin: plugin live update without a restart (plugins that depend on it are reloaded too), server health in detail (TPS, Java memory, CPU per task, worlds, plugins), MOTD and server icon right away. Kept up to date with Hostwerk.": "Hostwerks Helfer-Plugin: Plugin-Live-Update ohne Neustart (Plugins, die davon abhängen, werden mit neu geladen), Zustand im Detail (TPS, Java-Speicher, CPU je Aufgabe, Welten, Plugins), MOTD und Server-Symbol sofort. Wird mit Hostwerk aktuell gehalten.",
   "Console": "Konsole",
   "Console & log": "Konsole & Protokoll",
   "Console channel (ID)": "Konsolen-Kanal (ID)",

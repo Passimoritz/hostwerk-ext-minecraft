@@ -36,6 +36,12 @@ jobs:
           git diff --quiet -- ui/index.js || echo "::warning::ui/index.js differs from a fresh build – run the build before tagging."
       - name: Unit tests
         run: node --test tests/*.test.js
+      - name: HostwerkBridge JAR is up to date
+        if: hashFiles('server/bridge/pom.xml') != ''
+        continue-on-error: true
+        run: |
+          # Reproducible build (see server/bridge/pom.xml); another JDK can produce other bytes, hence only a warning
+          node tools/bridge.js --check || echo "::warning::server/bridge/HostwerkBridge.jar differs from a fresh build – run node tools/bridge.js."
       - name: Build package
         if: startsWith(github.ref, 'refs/tags/v')
         run: |

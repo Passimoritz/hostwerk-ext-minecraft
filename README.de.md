@@ -50,7 +50,7 @@ node check.js . --strict             # dieselbe Prüfung wie der Katalog (sdk/ch
 node tools/shots.js                  # README-Bilder aus einem Wegwerf-Hostwerk
 ```
 
-Oberflächen-Quelltext in `ui/src`, Server-Teil in `server/`. Texte im Code sind Englisch, Deutsch steht in `locales/de.json`. Das Helfer-Plugin (`server/bridge`) baut Maven: `mvn -q package`, danach `target/HostwerkBridge.jar` nach `server/bridge/` kopieren.
+Oberflächen-Quelltext in `ui/src`, Server-Teil in `server/`. Texte im Code sind Englisch, Deutsch steht in `locales/de.json`. Das Helfer-Plugin HostwerkBridge (`server/bridge`, Java 17, Maven) wird in einem Schritt gebaut, geprüft und nach `server/bridge/HostwerkBridge.jar` gelegt: `node tools/bridge.js` (`--check` vergleicht nur die eingecheckte JAR mit den Quellen). Der Build ist reproduzierbar – unveränderte Quellen ergeben byteweise dieselbe JAR.
 
 ## Lizenz
 

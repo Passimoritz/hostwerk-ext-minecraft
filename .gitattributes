@@ -1,0 +1,4 @@
+# HostwerkBridge: Quellen immer mit LF, damit die JAR auf jedem System byteweise gleich gebaut wird (node tools/bridge.js)
+server/bridge/pom.xml text eol=lf
+server/bridge/src/** text eol=lf
+*.jar binary

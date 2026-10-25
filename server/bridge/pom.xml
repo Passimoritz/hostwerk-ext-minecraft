@@ -1,18 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Hostwerk-Bridge: kleines Paper-Plugin für Plugin-Live-Updates (entladen + neu laden ohne Server-Neustart).
-  Bauen: mvn -q package  →  target/HostwerkBridge.jar  (wird nach server/minecraft/bridge/HostwerkBridge.jar kopiert)
+  HostwerkBridge: Hostwerks Helfer-Plugin im Minecraft-Server (Plugin-Live-Update ohne Neustart, Zustand im Detail,
+  MOTD und Server-Symbol sofort).
+  Bauen und einchecken in einem Schritt (aus dem Ordner der Erweiterung):  node tools/bridge.js
+  Das baut mit Maven (target/HostwerkBridge.jar), prüft die JAR und legt sie nach server/bridge/HostwerkBridge.jar.
+
+  Java 17 und api-version 1.18: läuft auf Paper/Purpur ab 1.18 (auch 1.18–1.20.4, die noch mit Java 17 laufen).
+  Die JAR ist reproduzierbar: gleiche Quellen ergeben byteweise dieselbe Datei (fester Zeitstempel, feste Plugin-Versionen).
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>de.passimoritz.hostwerk</groupId>
   <artifactId>hostwerk-bridge</artifactId>
-  <version>1.2.0</version>
+  <version>1.3.0</version>
   <packaging>jar</packaging>
+  <name>HostwerkBridge</name>
+  <url>https://github.com/Passimoritz/hostwerk-ext-minecraft</url>
 
   <properties>
-    <maven.compiler.release>21</maven.compiler.release>
+    <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Fester Zeitstempel für reproduzierbare JARs; bei einer neuen Version mit anheben -->
+    <project.build.outputTimestamp>2026-10-25T00:00:00Z</project.build.outputTimestamp>
   </properties>
 
   <repositories>
@@ -23,10 +32,11 @@
   </repositories>
 
   <dependencies>
+    <!-- Ältestes API mit Java 17 – so fällt beim Bauen auf, wenn der Code etwas Neueres braucht -->
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>1.20.6-R0.1-SNAPSHOT</version>
+      <version>1.20.4-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>
@@ -34,10 +44,48 @@
   <build>
     <finalName>HostwerkBridge</finalName>
     <resources>
+      <!-- plugin.yml bekommt die Version aus dieser Datei; das Symbol bleibt ungefiltert -->
       <resource>
         <directory>src/main/resources</directory>
         <filtering>true</filtering>
+        <includes>
+          <include>plugin.yml</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes>
+          <exclude>plugin.yml</exclude>
+        </excludes>
       </resource>
     </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <compilerArgs>
+            <arg>-Xlint:all,-processing,-serial</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <addMavenDescriptor>false</addMavenDescriptor>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
   </build>
 </project>

@@ -1,18 +1,21 @@
 name: HostwerkBridge
 version: '${project.version}'
 main: de.passimoritz.hostwerk.bridge.HostwerkBridge
-api-version: '1.20'
+api-version: '1.18'
 load: STARTUP
-description: Verbindung zu Hostwerk – Plugin-Live-Updates ohne Server-Neustart
+# plugin.yml kennt nur eine Beschreibung – Englisch wie bei Plugins üblich; Hostwerk zeigt sie übersetzt (locales/de.json)
+description: "Hostwerk's helper plugin: plugin live update without a restart (plugins that depend on it are reloaded too), server health in detail (TPS, Java memory, CPU per task, worlds, plugins), MOTD and server icon right away."
 author: Hostwerk
+website: https://github.com/Passimoritz/hostwerk-ext-minecraft
 commands:
   hostwerk:
-    description: Hostwerk-Bridge (nur Konsole)
-    usage: /hostwerk <ping|tps|stats|motd|icon|check|reload>
+    description: HostwerkBridge – for Hostwerk only (console)
+    usage: /hostwerk <ping|tps|stats [full]|motd <Base64>|icon [clear]|check <plugin>|reload <plugin> <file>>
     permission: hostwerk.bridge
 permissions:
   hostwerk.bridge:
     default: op
 
-# Symbol für Hostwerk (Plugin-Liste) – siehe Hostwerk-README „Eigenes Plugin-Symbol“
+# Symbol für Hostwerk (Plugin-Liste) – siehe Hostwerk-README „Eigenes Plugin-Symbol“. Gemeinsamer Hostwerk-Stil aus
+# hostwerk-extensions/tools/art.js: Glyphe „plug-zap“, Bewegung „beat“, Farbe #7c5cff (Hostwerk-Akzent).
 hostwerk-icon: hostwerk-icon.svg

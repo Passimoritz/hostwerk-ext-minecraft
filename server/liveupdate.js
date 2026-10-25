@@ -4,7 +4,7 @@
  *
  *  - „hot“:     Hostwerk-Bridge entlädt das alte Plugin und lädt das neue – ohne Neustart.
  *  - „restart“: JAR austauschen und den Server mit Countdown für die Spieler neu starten (immer sauber).
- *  - „auto“:    hot, wenn es sicher geht (keine abhängigen Plugins, kein Paper-Plugin), sonst restart.
+ *  - „auto“:    hot, wenn es sicher geht (kein Paper-Plugin; abhängige Plugins werden mit neu geladen), sonst restart.
  *
  * Auslöser: Knopf in Hostwerk, ein Skript im Plugin-Projekt (hostwerk-deploy.cmd/.sh, auch als Gradle-Task)
  * oder die Ordnerüberwachung (neue JAR in target/ bzw. build/libs/ wird automatisch übernommen).
@@ -45,6 +45,8 @@ class LiveUpdate {
   /** Bridge-Plugin in den Server legen (bzw. aktualisieren). Wirkt beim nächsten Start. */
   bridgeDisabled(id) { return fs.existsSync(path.join(this.pluginsDir(id), 'HostwerkBridge.jar.disabled')); }
   bridgePresent(id) { return fs.existsSync(path.join(this.pluginsDir(id), 'HostwerkBridge.jar')); }
+  /** Was die Bridge kann – in der Sprache der Oberfläche (die plugin.yml kennt nur Englisch). */
+  bridgeDescription() { return T('Hostwerk’s helper plugin: plugin live update without a restart (plugins that depend on it are reloaded too), server health in detail (TPS, Java memory, CPU per task, worlds, plugins), MOTD and server icon right away. Kept up to date with Hostwerk.'); }
   /**
    * Live-Update hängt an der Bridge: abgeschaltet oder gelöscht → Live-Update aus (gemerkt als „wegen Bridge pausiert“);
    * ist sie wieder da und aktiv → Live-Update von selbst wieder an, falls es vorher an war.

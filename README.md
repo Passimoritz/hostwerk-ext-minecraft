@@ -50,7 +50,7 @@ node check.js . --strict             # same check as the catalogue (sdk/check.js
 node tools/shots.js                  # README pictures from a throwaway Hostwerk
 ```
 
-Interface source in `ui/src`, server part in `server/`. Texts in the code are English, German is in `locales/de.json`. The helper plugin (`server/bridge`) builds with Maven: `mvn -q package`, then copy `target/HostwerkBridge.jar` to `server/bridge/`.
+Interface source in `ui/src`, server part in `server/`. Texts in the code are English, German is in `locales/de.json`. The helper plugin HostwerkBridge (`server/bridge`, Java 17, Maven) is built, checked and copied to `server/bridge/HostwerkBridge.jar` in one step: `node tools/bridge.js` (`--check` only compares the committed JAR with the sources). The build is reproducible – unchanged sources give the same JAR byte for byte.
 
 ## License
 
