@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Users, Gauge, Copy, Sun, Moon, CloudSun, CloudRain, CloudLightning, Save, Megaphone, Archive, ShieldCheck, Globe2, Map as MapIcon, Image as ImageIcon, Trash2, Download, RotateCcw, RotateCw, CalendarClock, Play, CheckCircle2, XCircle, AlertTriangle, ExternalLink, RefreshCw, Crown, HardDrive, ScrollText, Palette, Gamepad2, Search, Zap, Info, Upload, HeartPulse, UserX, SlidersHorizontal, Eraser, Package, ChevronDown, FolderOpen } from 'lucide-react';
-import { get, post, put, del, useApi, useLogs, useStore, fmtBytes, fmtDate, openExternal, waitJob, mcCount } from '@hostwerk/api';
+import { get, post, put, del, useApi, useLogs, useStore, fmtBytes, fmtDate, openExternal, waitJob, playerCount } from '@hostwerk/api';
 import { Btn, StatusPill, Empty, Loading, Callout, Field, Switch , toast, confirmDialog, promptDialog, InfoTip, TileEmpty, Modal } from '@hostwerk/ui';
 import { SvcShortcut } from '@hostwerk/kit';
 import { contextMenu } from '@hostwerk/kit';
@@ -179,7 +179,7 @@ function Appearance({ s, iconOnly = false }) {
             <div className="mc-name"><Keep>{s.name}</Keep></div>
             <div className="mc-motd-preview"><McText text={shown || 'A Minecraft Server'} /></div>
           </div>
-          <div className="mc-count">{mcCount(s)}/{s.proc.extra.maxPlayersLive || s.maxPlayers || 20}</div>
+          <div className="mc-count">{playerCount(s)}/{s.proc.extra.maxPlayersLive || s.maxPlayers || 20}</div>
         </div>
         {!iconOnly && live && edited && <div className="small muted">The preview shows your change – this is what players see after saving.</div>}
         {!iconOnly && live && !edited && overridden && <InfoTip>This MOTD comes live from the server – a plugin overrides the description from server.properties. Changes here only apply if the plugin doesn't replace them.</InfoTip>}

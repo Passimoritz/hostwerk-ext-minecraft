@@ -32,7 +32,12 @@
       "en": "Create, take over and manage Minecraft servers."
     },
     "icon": "box",
-    "nav": false
+    "nav": {
+      "group": "server",
+      "order": 20,
+      "area": "mc"
+    },
+    "route": "mc"
   },
   "backend": "server/index.js",
   "ui": "ui/index.js",
@@ -40,5 +45,31 @@
     "docs/screenshot.png",
     "docs/screenshot.de.png"
   ],
-  "videos": "videos/index.json"
+  "videos": "videos/index.json",
+  "data": {
+    "settings": [
+      "minecraft"
+    ],
+    "folders": [
+      "minecraft",
+      "backups/minecraft"
+    ]
+  },
+  "liveEvents": [
+    "mc",
+    "mc-updates"
+  ],
+  "keep": {
+    "kind": "mc",
+    "label": {
+      "de": "Minecraft-Server",
+      "en": "Minecraft server"
+    },
+    "settings": "minecraft",
+    "list": "servers",
+    "dir": "minecraft/{id}",
+    "folder": "minecraft",
+    "external": "externalDir",
+    "detail": "Minecraft {type} {version}"
+  }
 }

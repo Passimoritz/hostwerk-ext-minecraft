@@ -324,7 +324,7 @@ class McTools {
     if (!r) return null;
     const full = this.crashReport(id, r.file);
     const { annotateIncident } = require('./hw').core('incidents');
-    annotateIncident(`mc:${id}`, { crash: { server: id, file: r.file, description: full.description, exception: full.exception, excerpt: full.text.split(/\r?\n/).slice(0, 60).join('\n') } });
+    annotateIncident(`mc:${id}`, { crash: { server: id, href: `#/mc/${id}/crashes`, file: r.file, description: full.description, exception: full.exception, excerpt: full.text.split(/\r?\n/).slice(0, 60).join('\n') } });
     return r;
   }
 

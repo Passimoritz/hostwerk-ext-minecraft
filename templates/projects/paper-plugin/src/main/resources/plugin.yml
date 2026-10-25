@@ -1,0 +1,10 @@
+name: {{CLASS}}
+version: '${version}'
+main: de.hostwerk.{{PKG}}.{{CLASS}}
+api-version: '{{API_VERSION}}'
+description: {{TITLE}}
+commands:
+  hello:
+    description: Begrüßt dich
+    usage: /hello [Name]
+    aliases: [hallo]

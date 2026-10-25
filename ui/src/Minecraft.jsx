@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { locale } from '@hostwerk/kit';
 import { useNew } from '@hostwerk/kit';
 import { Box, Plus, Users, Upload, Check, Search, Info, FolderInput } from 'lucide-react';
-import { useStore, get, post, api, fmtBytes, waitJob, mcCount } from '@hostwerk/api';
+import { useStore, get, post, api, del, fmtBytes, waitJob, playerCount } from '@hostwerk/api';
 import { CurseForgePicker } from './McTools';
-import { Btn, Modal, Field, Empty, StatusPill, Callout, DropZone, Switch, toast, InfoTip, Tabs, Seg } from '@hostwerk/ui';
+import { Btn, Modal, Field, Empty, StatusPill, Callout, DropZone, Switch, toast, InfoTip, Tabs, Seg, confirmDialog } from '@hostwerk/ui';
 import { ServiceButtons, ProcStats } from '@hostwerk/kit';
 import { useImportState, ImportIntro, noImportTab } from '@hostwerk/kit';
 import { Adopt } from '@hostwerk/kit';
@@ -14,7 +14,7 @@ import { AddTile } from '@hostwerk/kit';
 import { serviceMenu } from '@hostwerk/kit';
 import { SvcImage, LazyImg, PlayerHead } from '@hostwerk/kit';
 import { CompareButton, NotesButton, PickInfo } from '@hostwerk/kit';
-import { removeMc, Keep } from '@hostwerk/kit';
+import { Keep } from '@hostwerk/kit';
 import { Advisor, Choices, Step, Summary } from '@hostwerk/kit';
 import { useAreaTabs } from '@hostwerk/kit';
 import { OverrideSlot } from '@hostwerk/kit';
@@ -24,6 +24,13 @@ import { t as T } from '@hostwerk/i18n';
 export const TYPE_COLORS = { paper: '#3b82f6', purpur: '#a855f7', spigot: '#f59e0b', vanilla: '#22c55e', folia: '#14b8a6', fabric: '#c9a66b', neoforge: '#f97316', forge: '#818cf8', modpack: '#ec4899', velocity: '#0ea5e9', bedrock: '#65a30d', custom: '#64748b' };
 const NO_VERSIONS = ['custom', 'modpack'];
 const LOADER_LABEL = { fabric: 'Fabric', neoforge: 'NeoForge', forge: 'Forge', quilt: 'Quilt' };
+
+/** Server endgültig löschen (bis Hostwerk 3.1 lag das im Kern): erst stoppen, dann mit Namen bestätigen */
+async function removeMc(s) {
+  if (s.proc && ['running', 'starting'].includes(s.proc.state)) { toast.error(T('Please stop the server first.')); return false; }
+  if (!(await confirmDialog({ title: T('Delete “{name}” permanently?', { name: s.name }), text: T('World, plugins/mods and settings are deleted. Backups stay in the backup folder.') + `\n\n${T('Folder')}: ${s.dir}`, confirm: T('Delete permanently'), danger: true, typeToConfirm: s.name }))) return false;
+  try { await del(`/mc/servers/${s.id}`); toast.success(T('Server deleted')); location.hash = '/mc'; return true; } catch (e) { toast.error(e.message); return false; }
+}
 
 /** Modpack von Modrinth wählen: Suche, Treffer mit Loader/Versionen, Details der neuesten Version. */
 function ModpackPicker({ value, onPick }) {
@@ -210,6 +217,10 @@ export function CreateServer({ onClose }) {
   );
 }
 
+const NONE = [];
+/** Server aus Hostwerks Überblick (overview.kinds.mc, SDK 3.5) – immer dieselbe Liste, damit useStore nicht neu zeichnet */
+export const mcServers = (o) => (o && o.kinds && o.kinds.mc && o.kinds.mc.items) || NONE;
+
 function ServerIcon({ s }) {
   return <SvcImage kind="mc" id={s.id} name={s.name} className="mc-list-icon" fallback={<div className="svc-icon mc"><Box /></div>} />;
 }
@@ -220,10 +231,10 @@ export default function Minecraft({ tab }) {
   const [create, setCreate] = useState(false);
   useEffect(() => { const h = () => setCreate(true); window.addEventListener('hw:new-mc', h); return () => window.removeEventListener('hw:new-mc', h); }, []);
   useNew('mc', () => setCreate(true));
-  const servers = o.minecraft;
+  const servers = mcServers(o);
   const xTabs = useAreaTabs('minecraft'); // Reiter von Erweiterungen (SDK 2.8): #/mc/x-<erweiterung>-<reiter>
   const xCur = xTabs.find((x) => x.id === tab);
-  const totalPlayers = useMemo(() => servers.reduce((n, s) => n + mcCount(s), 0), [servers]);
+  const totalPlayers = useMemo(() => servers.reduce((n, s) => n + playerCount(s), 0), [servers]);
   return (
     <div className="page fade-in">
       <div className="page-head">

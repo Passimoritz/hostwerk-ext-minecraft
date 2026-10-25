@@ -2208,5 +2208,11 @@
       "Your PC has {} RAM. Recommended: {}.",
       "Dein PC hat {} RAM. Empfohlen: {}."
     ]
-  ]
+  ],
+  "Minecraft NBT": "Minecraft-NBT",
+  "NBT tree": "NBT-Baum",
+  "Not an NBT file – probably another format with the .dat extension.": "Keine NBT-Datei – vermutlich ein anderes Format mit der Endung .dat.",
+  "Preview not possible": "Vorschau nicht möglich",
+  "read only": "nur lesen",
+  "The file is too large for the preview (over 20 MB).": "Die Datei ist zu groß für die Vorschau (über 20 MB)."
 }

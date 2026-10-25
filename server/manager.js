@@ -187,8 +187,13 @@ class MinecraftManager {
     // Quellen der Server-Programme in der Selbstwartung zeigen (offiziell oder Ersatzquelle MCJars)
     require('./providers').setKeeper((id, ok, text) => { if (ctx.keeper) ctx.keeper.note(`mc-quelle-${id}`, { ok, label: `Minecraft-Downloads (${id})`, text }); });
     this.ctx = ctx;
-    this.paths = ctx.paths;
+    // Eigener Ordner minecraft/ (wie bis Hostwerk 3.1) – der Kern kennt ihn seit 3.2 nicht mehr
+    const mcRoot = ctx.paths.minecraft || path.join(ctx.paths.base, 'minecraft');
+    try { fs.mkdirSync(mcRoot, { recursive: true }); } catch { /* Tests ohne Ordner */ }
+    this.paths = Object.assign(Object.create(ctx.paths), { minecraft: mcRoot, mcDir: (id) => path.join(mcRoot, id) });
     this.settings = ctx.settings;
+    // Eigener Einstellungsbereich „minecraft“ (stand bis Hostwerk 3.1 in Hostwerks Standardwerten)
+    { const s = ctx.settings.get(); if (!s.minecraft || !Array.isArray(s.minecraft.servers)) s.minecraft = { ...(s.minecraft || {}), servers: [] }; }
     this.procs = new Map();
     this.restartLog = new Map();
     this.selfTests = new Map();

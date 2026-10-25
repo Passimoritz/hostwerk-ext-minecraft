@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Store, Box, TerminalSquare, Settings2, FileCog, FolderOpen, Puzzle, Users, Archive, ArrowUpCircle, Copy, Skull, Search, Download, Trash2, Upload, RotateCcw, Shield, Ban, UserPlus, Crown, Gauge, Save, Plus, ExternalLink, RefreshCw, LayoutDashboard, Globe2, Map as MapIcon, CalendarClock, Zap, Network, BarChart3, Power, Info, History, Bug, Package, SlidersHorizontal, Wrench } from 'lucide-react';
-import { useStore, get, post, put, del, api, apiUrl, useApi, useLogs, fmtBytes, fmtDate, fmtNumber, isElectron, waitJob, mcCount, pickFolder, openExternal } from '@hostwerk/api';
+import { useStore, get, post, put, del, api, apiUrl, useApi, useLogs, fmtBytes, fmtDate, fmtNumber, isElectron, waitJob, playerCount, pickFolder, openExternal } from '@hostwerk/api';
 import { Btn, Tabs, Field, Switch, SettingRow, Seg, Empty, Loading, Callout, StatusPill, DropZone, Modal, toast, confirmDialog, promptDialog, InfoTip, PathInput, TileEmpty, SettingsLayout, SaveBar, SideSheet } from '@hostwerk/ui';
 import { ServiceButtons, ProcStats, SvcShortcut } from '@hostwerk/kit';
 import { FavMark, FavButton, favSort, favMenuItem } from '@hostwerk/kit';
 import { Console } from '@hostwerk/kit';
-import FileBrowser from '@hostwerk/files';
-import Editor from '@hostwerk/editor';
-import { VersionPicker } from './Minecraft';
+import { FileBrowser } from '@hostwerk/files';
+import { Editor } from '@hostwerk/editor';
+import { VersionPicker, mcServers } from './Minecraft';
 import { OverviewTab, WorldsTab, MapTab, AutomationTab } from './MinecraftExtras';
 import { ErrorHelp } from '@hostwerk/kit';
 import { CompareButton, NotesButton } from '@hostwerk/kit';
@@ -731,7 +731,7 @@ const OLD_TABS = { einstellungen: 'settings', spieler: 'players', welten: 'world
 const FIT_TABS = new Set(['overview', 'console', 'players', 'plugins', 'worlds', 'files', 'backups']);
 
 export default function MinecraftServer({ id, tab = 'overview', query = '' }) {
-  const all = useStore((st) => st.overview.minecraft);
+  const all = useStore((st) => mcServers(st.overview));
   const s = all.find((x) => x.id === id);
   const contrib = useExtContrib('minecraft'); // Reiter von Erweiterungen (vor dem frühen return – Hook-Regel)
   // Alte deutsche Reiter-Adressen (Lesezeichen, ältere Links) auf die heutigen umleiten – sonst bliebe nur der Kopf stehen
@@ -743,7 +743,7 @@ export default function MinecraftServer({ id, tab = 'overview', query = '' }) {
     // Bedrock Dedicated Server: keine Plugins, keine Datapacks, keine Karte – Spieler über Erlaubnisliste und Rechte
     { id: 'overview', label: T('Overview'), icon: LayoutDashboard, subs: [['overview']] },
     { id: 'console', label: T('Console'), icon: TerminalSquare, subs: [['console', 'Live', TerminalSquare], ['logs', T('Older logs'), History]] },
-    { id: 'players', label: T('Players'), icon: Users, badge: mcCount(s), subs: [['players', T('Administration'), Users], ['stats', T('Statistics'), BarChart3]] },
+    { id: 'players', label: T('Players'), icon: Users, badge: playerCount(s), subs: [['players', T('Administration'), Users], ['stats', T('Statistics'), BarChart3]] },
     { id: 'worlds', label: T('World'), icon: Globe2, subs: [['worlds']] },
     { id: 'settings', label: T('Settings'), icon: Settings2, subs: [['settings', 'Server', Settings2], ['automation', T('Schedule & check'), CalendarClock], ['version', 'Version', ArrowUpCircle]] },
     { id: 'files', label: T('Files'), icon: FolderOpen, subs: [['files', T('Files'), FolderOpen], ['backups', T('Backups'), Archive]] },
@@ -758,7 +758,7 @@ export default function MinecraftServer({ id, tab = 'overview', query = '' }) {
   ] : [
     { id: 'overview', label: T('Overview'), icon: LayoutDashboard, subs: [['overview']] },
     { id: 'console', label: T('Console'), icon: TerminalSquare, subs: [['console', 'Live', TerminalSquare], ['logs', T('Older logs'), History], ['crashes', T('Crash reports'), Bug]] },
-    { id: 'players', label: T('Players'), icon: Users, badge: mcCount(s), subs: [['players', T('Administration'), Users], ['stats', T('Statistics'), BarChart3]] },
+    { id: 'players', label: T('Players'), icon: Users, badge: playerCount(s), subs: [['players', T('Administration'), Users], ['stats', T('Statistics'), BarChart3]] },
     { id: 'plugins', label: s.content === 'mods' ? 'Mods' : 'Plugins', icon: Puzzle, subs: [['plugins', T('Installed'), Puzzle], ...(s.pluginsSupported ? [['market', T('Marketplace'), Store]] : []), ...(s.content !== 'mods' && s.pluginsSupported ? [['configs', T('Settings'), SlidersHorizontal]] : [])] },
     { id: 'worlds', label: T('World'), icon: Globe2, subs: [['worlds', T('Worlds & rules'), Globe2], ['datapacks', 'Datapacks', Package], ['map', T('Map'), MapIcon]] },
     { id: 'settings', label: T('Settings'), icon: Settings2, subs: [['settings', 'Server', Settings2], ['automation', T('Schedule & check'), CalendarClock], ['version', 'Version', ArrowUpCircle]] },

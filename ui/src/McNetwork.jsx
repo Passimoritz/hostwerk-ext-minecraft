@@ -3,15 +3,16 @@ import { Network as NetIcon, ArrowUp, ArrowDown, Save, Plus, Package, Download, 
 import { get, post, useApi, useStore, waitJob, fmtDate } from '@hostwerk/api';
 import { NetworkGraph } from './McTools';
 import { Btn, Switch, Loading, Callout, Empty, toast, confirmDialog } from '@hostwerk/ui';
-import { TYPE_COLORS } from './Minecraft';
+import { TYPE_COLORS, mcServers } from './Minecraft';
 import { AiHint } from '@hostwerk/kit';
+import { t as T } from '@hostwerk/i18n';
 
 const COMPAT_TEXT = { paper: 'Forwarding via paper-global.yml', fabric: 'Forwarding via the FabricProxy-Lite mod', forge: 'Forwarding via the Proxy Compatible Forge mod' };
 
 /* ---------- Velocity: welche Server gehören zum Netzwerk ---------- */
 export function NetworkTab({ s }) {
   const st = useApi(`/mc/servers/${s.id}/network`);
-  const servers = useStore((x) => x.overview.minecraft);
+  const servers = useStore((x) => mcServers(x.overview));
   const [rows, setRows] = useState(null);
   const [busy, setBusy] = useState(false);
   if (!st.data) return <Loading />;

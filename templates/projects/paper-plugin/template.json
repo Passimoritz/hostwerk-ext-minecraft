@@ -1,0 +1,30 @@
+{
+  "name": "Minecraft-Plugin (Paper)",
+  "description": "Eigenes Paper-Plugin mit Gradle (neueste Paper-API und Gradle-Version): Befehl, Event-Listener und Konfiguration als Startpunkt. Wird direkt mit deinem Minecraft-Server verbunden – jede neu gebaute Version spielt Hostwerk live ein. Braucht beim Erstellen Internet.",
+  "icon": "puzzle",
+  "color": "#23964a",
+  "target": "folder",
+  "needs": [
+    "java",
+    "mc",
+    "internet"
+  ],
+  "tags": [
+    "Java",
+    "Paper",
+    "Gradle"
+  ],
+  "resolve": [
+    "paperApi",
+    "gradle"
+  ],
+  "scaffold": [
+    {
+      "gradleWrapper": true
+    }
+  ],
+  "order": 40,
+  "kindFilter": {
+    "mc": "pluginsSupported"
+  }
+}
