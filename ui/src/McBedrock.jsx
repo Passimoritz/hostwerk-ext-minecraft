@@ -314,7 +314,7 @@ export function BedrockVersion({ s }) {
           <div className="card-body stack">
             <div className="row-tight"><span className="grow">IPv4</span><code>{s.port}</code><span className="badge">UDP</span></div>
             {s.portv6 ? <div className="row-tight"><span className="grow">IPv6</span><code>{s.portv6}</code><span className="badge">UDP</span></div> : null}
-            <a className="small" href="#/live/firewall">Firewall &amp; Router →</a>
+            <a className="small" href="#/live/schutz/firewall">Firewall &amp; Router →</a>
           </div>
         </div>
         <div className="card">

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1
+
+- The firewall link points to the new place Go live → Protection → Firewall (Hostwerk with SDK 3.11). / Der Firewall-Link zeigt auf den neuen Ort Livebetrieb → Schutz → Firewall (Hostwerk mit SDK 3.11).
+
 ## 1.1.0
 
 - The former extension "MOTD studio" lives here now (SDK 3.8 `replaces`): the MOTD section in the overview of every Minecraft server, the big editor as the tab "MOTD studio" in the server list (with the colour codes) and "Design MOTD …" in the right-click menu and the quick search. Saved variants are taken over once; Hostwerk installs this version for everyone who had the MOTD studio and removes it. / Die frühere Erweiterung „MOTD-Studio“ steckt jetzt hier (SDK 3.8 `replaces`): der MOTD-Abschnitt in der Übersicht jedes Minecraft-Servers, der große Editor als Reiter „MOTD-Studio“ in der Serverliste (mit den Farbcodes) und „MOTD gestalten …“ im Rechtsklick-Menü und in der Schnellsuche. Gespeicherte Varianten werden einmal übernommen; Hostwerk installiert diese Fassung für alle mit dem MOTD-Studio und entfernt es.
