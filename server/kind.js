@@ -84,7 +84,7 @@ function minecraftKind(mc) {
     },
     /** Ohne eigenes Bild immer das aktuelle server-icon.png (lässt sich auf der Minecraft-Seite ändern) */
     liveIcon: (id) => require('path').join(mc.dir(id), 'server-icon.png'),
-    /** Docker-Compose-Export (System → Export): Server als itzg/minecraft-server, Ordner aus .env */
+    /** Docker-Compose-Export (Einstellungen → Umziehen & teilen): Server als itzg/minecraft-server, Ordner aus .env */
     compose: (m, { envName, env, path: fwd, name }) => {
       const E = envName('dir');
       env(`${E}=${fwd(mc.dir(m.id))}`);
