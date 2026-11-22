@@ -198,8 +198,8 @@ function saveForm(pluginsDir, id, values) {
     let v = values[f.key];
     if (f.type === 'password' && (v === '' || v == null)) continue; // leer = unverändert
     if (f.type === 'bool') v = v === true || v === 'true';
-    else if (f.type === 'number') { v = Number(v); if (!Number.isFinite(v)) throw new Error(T('“{label}” must be a number.', { label: f.label })); }
-    else if (Array.isArray(f.type)) { if (!f.type.includes(String(v))) throw new Error(T('Invalid value for “{label}”.', { label: f.label })); v = String(v); }
+    else if (f.type === 'number') { if (v === '' || v == null) continue; v = Number(v); if (!Number.isFinite(v)) throw new Error(T('“{label}” must be a number.', { label: T(f.label) })); }
+    else if (Array.isArray(f.type)) { if (!f.type.includes(String(v))) throw new Error(T('Invalid value for “{label}”.', { label: T(f.label) })); v = String(v); }
     else v = String(v);
     if (doc.getIn(pathOf(f.key)) === v) continue;
     doc.setIn(pathOf(f.key), v);

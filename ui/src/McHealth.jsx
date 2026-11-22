@@ -4,6 +4,7 @@ import { get, post, useApi, fmtBytes, fmtDuration } from '@hostwerk/api';
 import { Btn, SideSheet, Loading, Callout, StatusPill, toast, useNow } from '@hostwerk/ui';
 import McDimIcon, { dimLabel, useDimInfo } from './McDimIcon';
 import { t as T } from '@hostwerk/i18n';
+import { dec } from './num';
 
 /*
  * Zustand eines Minecraft-Servers: auf der Kachel CPU und RAM immer als „Server / System“, in der Detailansicht die
@@ -12,7 +13,7 @@ import { t as T } from '@hostwerk/i18n';
  * Das Innere der Java-VM liefert die HostwerkBridge ab 1.2 (still über die Konsole); ohne sie bleibt die Prozess-Sicht.
  */
 
-const pctText = (v) => (v == null || !Number.isFinite(v) ? '–' : `${String(Math.round(v * 10) / 10).replace('.', ',')} %`);
+const pctText = (v) => (v == null || !Number.isFinite(v) ? '–' : `${dec(v)} %`);
 const gb = (b) => (b == null ? '–' : fmtBytes(b));
 
 /** Gestapelter Balken: parts = [{ v, cls, label, hint }], total = 100 %. */
@@ -209,7 +210,7 @@ function HealthBody({ h, s, threads, setThreads, installBridge }) {
               {/* Bereiche mit gleichem Namen zusammenfassen (z. B. drei Code-Cache-Bereiche → „Übersetzter Code“) */}
               {Object.values((j.pools || []).filter((p) => p.used > 0).reduce((acc, p) => { const l = poolLabel(p.name); const x = acc[l] || (acc[l] = { label: l, used: 0, heap: p.heap, names: [] }); x.used += p.used; x.names.push(p.name); return acc; }, {})).sort((a, b) => b.used - a.used).map((p) => <div key={p.label} className="hb-row" title={p.names.join(', ')}><span className="grow ellipsis">{T(p.label)} {p.heap && <span className="tiny muted">Heap</span>}</span><span className="mono tiny">{gb(p.used)}</span></div>)}
             </div>
-            {(j.gc || []).length > 0 && <div className="tiny muted">{T('Garbage collector')}: {(j.gc || []).map((g) => `${g.name} ${g.count}× (${String(Math.round(g.ms / 100) / 10).replace('.', ',')} s)`).join(' · ')}</div>}
+            {(j.gc || []).length > 0 && <div className="tiny muted">{T('Garbage collector')}: {(j.gc || []).map((g) => `${g.name} ${g.count}× (${dec(g.ms / 1000)} s)`).join(' · ')}</div>}
           </> : <StackBar total={h.config.memMax} parts={[{ v: rss, cls: 'c1', label: T('Process'), hint: gb(rss) }]} />}
         </section>
       )}

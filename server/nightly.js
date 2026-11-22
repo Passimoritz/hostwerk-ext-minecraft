@@ -53,7 +53,7 @@ class NightlyBackups {
         done.push({ id: s.id, ok: true });
       } catch (e) {
         c.lastRun = Date.now(); c.lastError = e.message;
-        require('./hw').core('events').broadcast({ type: 'toast', kind: 'error', text: `Nächtliches Backup von „${s.name}“ fehlgeschlagen: ${e.message}` });
+        require('./hw').core('events').broadcast({ type: 'toast', kind: 'error', text: require('./hw').t('Nightly backup of “{name}” failed: {error}', { name: s.name, error: e.message }) });
         done.push({ id: s.id, ok: false, error: e.message });
       } finally { this.busy.delete(s.id); this.ctx.settings.save(); }
     }

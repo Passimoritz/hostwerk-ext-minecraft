@@ -115,7 +115,7 @@ class PluginSources {
     for (const p of plugins) {
       const base = p.file.replace(/\.disabled$/i, '');
       const x = src[base];
-      if (x && this.isExternal(x)) { linked.push({ file: p.file, name: p.name, size: p.size, source: x.source, label: LABEL[x.source], id: x.id, dir: x.source === 'project' ? x.id : null, page: pageUrl(x), auto: !!x.auto, paused: !!x.paused, version: x.version || p.version || null, check: x.paused ? null : (this.state.get(id) || {})[base] || null }); continue; }
+      if (x && this.isExternal(x)) { linked.push({ file: p.file, name: p.name, size: p.size, source: x.source, label: LABEL[x.source] && T(LABEL[x.source]), id: x.id, dir: x.source === 'project' ? x.id : null, page: pageUrl(x), auto: !!x.auto, paused: !!x.paused, version: x.version || p.version || null, check: x.paused ? null : (this.state.get(id) || {})[base] || null }); continue; }
     }
     for (const sg of this.lastSuggestions.get(id) || []) if (!linked.some((l) => l.file === sg.file)) suggestions.push(sg);
     return { linked, suggestions };

@@ -9,6 +9,10 @@
     "de": "Minecraft-Server mit Paper, Purpur, Folia, Fabric, NeoForge, Forge, Velocity, Bedrock und Modpacks: anlegen oder übernehmen, Konsole, Spieler, Plugins und Mods aus Modrinth und Hangar, Plugin-Live-Update ohne Neustart, Welten mit allen Dimensionen, Zustand im Detail, Sicherungen, Zeitplan, sichere Updates mit Probelauf.",
     "en": "Minecraft servers with Paper, Purpur, Folia, Fabric, NeoForge, Forge, Velocity, Bedrock and modpacks: create or take over, console, players, plugins and mods from Modrinth and Hangar, plugin live update without restart, worlds with all dimensions, health in detail, backups, schedule, safe updates with a trial run."
   },
+  "disableWarning": {
+    "de": "Laufende Minecraft-Server werden nicht gestoppt – steuern kannst du sie in Hostwerk aber erst nach dem Einschalten wieder (Seite, Konsole, Spieler). Bis dahin pausieren nächtliche Sicherungen, Minecraft-Aufgaben im Zeitplan und die Update-Prüfung, beim Start von Hostwerk starten keine Server automatisch, und Servernetzwerk, Bedrock-Brücke und Spieler-Bestenliste funktionieren nicht. Welten und Einstellungen bleiben.",
+    "en": "Running Minecraft servers are not stopped – but you can only control them in Hostwerk again after turning it back on (page, console, players). Until then nightly backups, scheduled Minecraft tasks and the update check pause, no servers start automatically with Hostwerk, and server network, Bedrock bridge and player leaderboard do not work. Worlds and settings stay."
+  },
   "version": "1.1.1",
   "author": "Hostwerk",
   "homepage": "https://github.com/Passimoritz/hostwerk-ext-minecraft",

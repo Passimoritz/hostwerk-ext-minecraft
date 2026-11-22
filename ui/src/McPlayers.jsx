@@ -7,6 +7,7 @@ import { PlayerHead } from '@hostwerk/kit';
 import { ActivityCard } from './McTools';
 import { locale } from '@hostwerk/kit';
 import { t as T } from '@hostwerk/i18n';
+import { dec } from './num';
 
 /*
  * Online-Spieler: Status (OP, Whitelist) kennen und per Knopf oder Rechtsklick verwalten.
@@ -170,7 +171,7 @@ const COLS = [
   ['deaths', 'Deaths', (p) => (p.world ? p.world.deaths : '–')],
   ['mobKills', 'Mob kills', (p) => (p.world ? p.world.mobKills : '–')],
   ['mined', 'Mined', (p) => (p.world ? p.world.mined.toLocaleString(locale()) : '–')],
-  ['distanceKm', 'Distance', (p) => (p.world ? `${String(p.world.distanceKm).replace('.', ',')} km` : '–')],
+  ['distanceKm', 'Distance', (p) => (p.world ? `${dec(p.world.distanceKm)} km` : '–')],
 ];
 const val = (p, k) => (k === 'playMs' || k === 'sessions' || k === 'last' ? p[k] || 0 : p.world ? p.world[k] || 0 : -1);
 

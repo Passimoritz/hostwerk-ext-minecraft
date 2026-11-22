@@ -449,9 +449,11 @@ class BedrockEdition {
       if (wasRunning) { job.progress(72, T('Stopping server …')); await mc.stop(id); }
       job.progress(78, T('Moving worlds and settings over …'));
       for (const k of KEEP) { const src = path.join(dir, k); if (fs.existsSync(src)) { fs.rmSync(path.join(staged, k), { recursive: true, force: true }); fs.cpSync(src, path.join(staged, k), { recursive: true }); } }
+      // Nur einen alten Stand löschen, wenn der Serverordner noch da ist (sonst liegen die Welten womöglich nur dort)
+      if (!fs.existsSync(dir)) throw new Error(T('Server folder missing – the previous state is in {dir}.', { dir: prevDir }));
       fs.rmSync(prevDir, { recursive: true, force: true });
       await renameRetry(dir, prevDir);
-      await renameRetry(staged, dir);
+      try { await renameRetry(staged, dir); } catch (e) { await renameRetry(prevDir, dir).catch(() => {}); throw e; }
       const prev = s.version; const prevPreview = !!s.preview;
       s.version = rel.version; s.preview = !!rel.preview;
       mc.settings.save();

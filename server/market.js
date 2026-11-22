@@ -164,7 +164,7 @@ class PluginMarket {
         source, id: p.id, slug: p.slug, title: p.title, description: p.description, body: p.body || '', icon: p.icon_url, downloads: p.downloads, follows: p.followers,
         author: (owner.find((m) => m.role === 'Owner') || owner[0] || {}).user?.username || null, license: p.license && p.license.id, updated: p.updated, published: p.published,
         categories: p.categories, gallery: (p.gallery || []).slice(0, 8).map((g) => ({ url: g.url, title: g.title })),
-        links: [['Page on Modrinth', `https://modrinth.com/${p.project_type || 'plugin'}/${p.slug}`], ['Source code', p.source_url], ['Report a bug', p.issues_url], ['Wiki', p.wiki_url], ['Discord', p.discord_url]].filter(([, u]) => u).map(([label, url]) => ({ label, url })),
+        links: [['Page on Modrinth', `https://modrinth.com/${p.project_type || 'plugin'}/${p.slug}`], ['Source code', p.source_url], ['Report a bug', p.issues_url], ['Wiki', p.wiki_url], ['Discord', p.discord_url]].filter(([, u]) => u).map(([label, url]) => ({ label: T(label), url })),
         versions: vs, recommended: (vs.find((v) => v.fits && v.type === 'release') || vs.find((v) => v.fits) || {}).id || null, serverVersion: version, compat: compatSummary(vs, version),
       };
     }

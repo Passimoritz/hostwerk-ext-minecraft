@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Gauge, Upload, FolderOpen, Globe2, Package, Search, Download, Trash2, Play, Pause, Square, History, Bug, Copy, Users, Save, SlidersHorizontal, Network as NetIcon, CalendarDays, Sparkles, ExternalLink, FileText } from 'lucide-react';
 import { get, post, put, del, api, useApi, waitJob, fmtBytes, fmtDate, fmtNumber, pickFolder, isElectron, openExternal } from '@hostwerk/api';
 import { Btn, Field, Switch, SettingRow, Seg, Empty, Loading, Callout, DropZone, Modal, toast, confirmDialog, InfoTip, Sparkline, TileEmpty } from '@hostwerk/ui';
-import { PlayerHead, LazyImg } from '@hostwerk/kit';
+import { PlayerHead, LazyImg, Keep } from '@hostwerk/kit';
 import { AiHint } from '@hostwerk/kit';
 import { t as T, pl } from '@hostwerk/i18n';
+import { dec } from './num';
 
 const tpsColor = (t) => (t == null ? undefined : t >= 19.5 ? 'var(--ok)' : t >= 17 ? 'var(--warn)' : 'var(--err)');
 
@@ -150,7 +151,7 @@ export function DatapacksTab({ s }) {
           {!d.exists ? <Empty icon={Package} title="No world yet" text="Start the server once, then you can add datapacks." /> : d.packs.length === 0 ? <Empty icon={Package} title="No datapacks" text="Search the marketplace on the right or upload a ZIP." /> : d.packs.map((p) => (
             <div key={p.name} className="list-item" data-row-menu>
               <Switch checked={p.enabled} label={`${p.name} on/off`} onChange={() => toggle(p)} />
-              <div className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis">{p.name}</div><div className="tiny muted ellipsis">{p.description || (p.kind === 'zip' ? 'ZIP' : 'Folder')} · {fmtBytes(p.size)}</div></div>
+              <div className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis"><Keep>{p.name}</Keep></div><div className="tiny muted ellipsis">{p.description ? <Keep>{p.description}</Keep> : (p.kind === 'zip' ? 'ZIP' : 'Folder')} · {fmtBytes(p.size)}</div></div>
               <button className="btn ghost xs icon" title="Delete" aria-label={`Delete ${p.name}`} onClick={() => remove(p)}><Trash2 /></button>
             </div>
           ))}
@@ -166,7 +167,7 @@ export function DatapacksTab({ s }) {
           {!hits ? <Loading /> : hits.length === 0 ? <div className="small muted">No results for Minecraft {s.version}.</div> : hits.map((h) => (
             <div key={h.id} className="row-tight mc-dp-hit">
               <LazyImg src={h.icon} style={{ width: 32, height: 32, borderRadius: 6 }} fallback={<Package size={20} />} />
-              <div className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis">{h.title}</div><div className="tiny muted ellipsis">{h.description}</div></div>
+              <div className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis"><Keep>{h.title}</Keep></div><div className="tiny muted ellipsis"><Keep>{h.description}</Keep></div></div>
               <button className="btn ghost xs icon" title="Open Page" aria-label={`Open ${h.title} on Modrinth`} onClick={() => openExternal(h.url)}><ExternalLink /></button>
               {h.installed ? <span className="badge ok">installed</span> : <Btn className="xs" icon={Download} busy={busy === h.id} disabled={!d.exists} onClick={() => install(h)}>Install</Btn>}
             </div>
@@ -352,7 +353,7 @@ export function PluginFormsTab({ s }) {
 /* ------------------------------------------------------------------ Spieler-Aktivität (Statistik) */
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const hrs = (ms) => (ms >= 3600000 ? `${(ms / 3600000).toFixed(1).replace('.', ',')} h` : `${Math.round(ms / 60000)} min`);
+const hrs = (ms) => (ms >= 3600000 ? `${dec(ms / 3600000)} h` : `${Math.round(ms / 60000)} min`);
 export function ActivityCard({ activity }) {
   if (!activity) return null;
   const max = Math.max(0.01, ...activity.hours);
@@ -363,7 +364,7 @@ export function ActivityCard({ activity }) {
       <div className="card">
         <div className="card-head"><CalendarDays size={16} /><h3>Peak times</h3><InfoTip>Average players online at the same time per weekday and hour – measured since Hostwerk started recording sessions.</InfoTip></div>
         <div className="card-body stack" style={{ gap: 6 }}>
-          {activity.peak ? <div className="small">{`Busiest: ${DAY_NAMES[activity.peak.day]}, ${activity.peak.hour}–${activity.peak.hour + 1} h (avg. ${String(activity.peak.players).replace('.', ',')} players)`}</div> : <div className="small muted">Not enough data yet.</div>}
+          {activity.peak ? <div className="small">{`Busiest: ${DAY_NAMES[activity.peak.day]}, ${activity.peak.hour}–${activity.peak.hour + 1} h (avg. ${dec(activity.peak.players)} players)`}</div> : <div className="small muted">Not enough data yet.</div>}
           <div className="mc-heat" role="img" aria-label="Peak times per weekday and hour">
             {DAYS.map((d, di) => (
               <div key={d} className="mc-heat-row">
@@ -463,7 +464,7 @@ export function CurseForgePicker({ value, onPick }) {
         {!res ? <div className="ver-item muted">Loading modpacks …</div> : res.hits.length === 0 ? <div className="ver-item muted">No matches</div> : res.hits.map((h) => (
           <div key={h.id} className={`ver-item ${value && value.projectId === h.id ? 'active' : ''}`} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') pick(h); }} onClick={() => pick(h)} style={{ alignItems: 'center' }}>
             <LazyImg src={h.icon} style={{ width: 28, height: 28, borderRadius: 6 }} fallback={<Package size={20} />} />
-            <div className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis">{h.title}</div><div className="tiny muted ellipsis">{h.description}</div></div>
+            <div className="grow" style={{ minWidth: 0 }}><div className="bold ellipsis"><Keep>{h.title}</Keep></div><div className="tiny muted ellipsis"><Keep>{h.description}</Keep></div></div>
             <span className="tiny muted" style={{ whiteSpace: 'nowrap' }}>{h.loaders.join(' · ')} · {h.versions[0] || ''} · {(h.downloads / 1000).toFixed(0)}k</span>
           </div>
         ))}

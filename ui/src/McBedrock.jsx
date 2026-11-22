@@ -5,6 +5,7 @@ import { Btn, Field, Switch, SettingRow, Seg, Empty, Loading, Callout, StatusPil
 import { ProcStats, SvcShortcut } from '@hostwerk/kit';
 import { Console } from '@hostwerk/kit';
 import { t as T, pl } from '@hostwerk/i18n';
+import { AddressRows } from './McAddress';
 
 /*
  * Bedrock Dedicated Server im Minecraft-Bereich (Kern-Typ „bedrock“): eigene Reiter statt der Java-Reiter – keine
@@ -44,7 +45,7 @@ function Addresses({ s }) {
   return (
     <div className="stack mcb-gap">
       <div className="label row-tight">Connect <InfoTip title="How friends get in">In Minecraft (Bedrock) go to Play → Servers → “Add server” and enter the address and the port. For friends outside your network, forward the port in the router (UDP and TCP) – or “Router & port forwarding” does it by itself.</InfoTip><NetherNetBadge nn={nn} /></div>
-      {[s.address.local, ...s.address.lan].map((a) => <div key={a} className="row-tight"><code className="grow ellipsis">{a}</code><span className="badge">{tcp ? 'UDP + TCP' : 'UDP'}</span><button className="btn ghost xs icon" title="Copy" aria-label="Copy" onClick={() => { navigator.clipboard.writeText(a); toast.success('Address copied'); }}><Copy /></button></div>)}
+      <AddressRows s={s} extra={<span className="badge">{tcp ? 'UDP + TCP' : 'UDP'}</span>} />
       {s.portv6 ? <div className="tiny muted">{T(`IPv6: Port ${s.portv6} (UDP)`)}</div> : null}
       {nn && nn.udp && nn.udp.length > 0 ? <div className="tiny muted">{T(`NetherNet game ports: ${nn.udp.length > 3 ? `${nn.udp[0]}–${nn.udp[nn.udp.length - 1]}` : nn.udp.join(', ')} (UDP)`)}</div> : null}
     </div>
@@ -217,7 +218,7 @@ export function BedrockPlayers({ s }) {
         </div>
         <div className="card-body stack">
           <form className="row-tight" onSubmit={(e) => { e.preventDefault(); add(); }}>
-            <input className="input sm grow" value={name} maxLength={32} placeholder="Gamertag, z. B. Steve123" aria-label="Gamertag" onChange={(e) => setName(e.target.value)} />
+            <input className="input sm grow" value={name} maxLength={32} placeholder="Gamertag, e.g. Steve123" aria-label="Gamertag" onChange={(e) => setName(e.target.value)} />
             <Btn className="sm primary" icon={UserPlus} busy={busy} disabled={!name.trim()} type="submit">Add</Btn>
           </form>
           {l.allowlist.length === 0 ? <TileEmpty icon={ShieldCheck} text="Nobody on the list yet." /> : (

@@ -14,6 +14,7 @@ import { ErrorBoundary } from '@hostwerk/kit';
 import { ExtSections, useSectionRole } from '@hostwerk/kit';
 import { TpsCard, WorldUploadCard, PregenCard } from './McTools';
 import { t as T, pl } from '@hostwerk/i18n';
+import { AddressRows } from './McAddress';
 
 /* ------------------------------------------------------------------ Minecraft-Farbcodes */
 const MC = { 0: '#000000', 1: '#0000AA', 2: '#00AA00', 3: '#00AAAA', 4: '#AA0000', 5: '#AA00AA', 6: '#FFAA00', 7: '#AAAAAA', 8: '#555555', 9: '#5555FF', a: '#55FF55', b: '#55FFFF', c: '#FF5555', d: '#FF55FF', e: '#FFFF55', f: '#FFFFFF' };
@@ -190,8 +191,8 @@ function Appearance({ s, iconOnly = false }) {
         </Field>
         <div className="mc-colors">
           {Object.entries(MC).map(([k, c]) => <button key={k} title={`§${k}`} style={{ background: c }} onClick={() => insert('§' + k)} />)}
-          <button className="fmt" title="Fett" onClick={() => insert('§l')}><b>F</b></button>
-          <button className="fmt" title="Kursiv" onClick={() => insert('§o')}><i>K</i></button>
+          <button className="fmt" title="Bold" onClick={() => insert('§l')}><b>{T('Bold').charAt(0)}</b></button>
+          <button className="fmt" title="Italic" onClick={() => insert('§o')}><i>{T('Italic').charAt(0)}</i></button>
           <button className="fmt" title="Revert" onClick={() => insert('§r')}>↺</button>
         </div>
         </>}
@@ -307,7 +308,7 @@ export function OverviewTab({ s }) {
               <HealthSummary s={s} />
               <div className="stack" style={{ gap: 6 }}>
                 <div className="label">Connect</div>
-                {[s.address.local, ...s.address.lan].map((a) => <div key={a} className="row-tight"><code className="grow ellipsis">{a}</code><button className="btn ghost xs icon" title="Copy" onClick={() => { navigator.clipboard.writeText(a); toast.success('Address copied'); }}><Copy /></button></div>)}
+                <AddressRows s={s} />
                 {connectSlots.map((c) => <ErrorBoundary key={c.key} silent where={c.key}><c.Component s={s} /></ErrorBoundary>)}
               </div>
             </div>

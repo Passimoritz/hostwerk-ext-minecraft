@@ -114,7 +114,8 @@ class SafeUpgrade {
       this.remember(id, result);
       if (!apply) return result;
       if (!result.ok) throw new Error(T('Not applied – the dry run or the plugin check failed (details in the result).'));
-      if (this.mc.proc(id).isRunning()) { job.progress(70, T('Stopping server …')); await this.mc.stop(id); }
+      const wasRunning = this.mc.proc(id).isRunning();
+      if (wasRunning) { job.progress(70, T('Stopping server …')); await this.mc.stop(id); }
       job.progress(74, T('Backup before the version jump …'));
       if (this.mc.ctx && this.mc.ctx.timeMachine) await this.mc.ctx.timeMachine.withData(T('Minecraft: {name} – before the version jump', { name: this.mc.get(id).name }), { mc: [id] }, job);
       else await this.mc.backup(id, 'vor-versionssprung').promise;
@@ -130,15 +131,15 @@ class SafeUpgrade {
       }
       result.applied = true;
       this.remember(id, result);
-      job.progress(96, T('Starting server …'));
-      await this.mc.start(id).catch((e) => job.log('Start: ' + e.message));
+      // Nur wieder starten, was vorher lief – ein gestoppter Server bleibt aus
+      if (wasRunning) { job.progress(96, T('Starting server …')); await this.mc.start(id).catch((e) => job.log('Start: ' + e.message)); }
       return result;
     }, { key: 'mc-safe-upgrade-' + id });
   }
 
   routes(r) {
-    r.get('/mc/servers/:id/safe-upgrade', (req, res) => res.json(this.last.get(req.params.id) || null));
-    r.get('/mc/servers/:id/safe-upgrade/history', (req, res) => res.json(this.hist.get(req.params.id) || []));
+    r.get('/mc/servers/:id/safe-upgrade', (req, res) => { this.mc.get(req.params.id); res.json(this.last.get(req.params.id) || null); });
+    r.get('/mc/servers/:id/safe-upgrade/history', (req, res) => { this.mc.get(req.params.id); res.json(this.hist.get(req.params.id) || []); });
     r.post('/mc/servers/:id/safe-upgrade/check', async (req, res) => res.json(await this.check(req.params.id, req.body || {})));
     r.post('/mc/servers/:id/safe-upgrade', (req, res) => res.json({ job: this.run(req.params.id, req.body || {}).id }));
   }

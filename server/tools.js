@@ -422,7 +422,7 @@ class McTools {
       const b = req.body || {};
       res.json({ job: this.importWorld(req.params.id, { dir: String(b.path || '') }, { mode: b.mode === 'replace' ? 'replace' : 'new', name: b.name, makeMain: !!b.makeMain }).id });
     });
-    r.get('/mc/servers/:id/datapacks', async (req, res) => res.json(await this.datapacks(req.params.id)));
+    r.get('/mc/servers/:id/datapacks', async (req, res) => { this.mc.get(req.params.id); res.json(await this.datapacks(req.params.id)); });
     r.put('/mc/servers/:id/datapacks/:name', (req, res) => res.json(this.toggleDatapack(req.params.id, req.params.name, !!(req.body || {}).enabled)));
     r.delete('/mc/servers/:id/datapacks/:name', (req, res) => { this.removeDatapack(req.params.id, req.params.name); res.json({ ok: true }); });
     r.post('/mc/servers/:id/datapacks/upload', upload.single('file'), async (req, res) => {
@@ -435,9 +435,9 @@ class McTools {
     r.post('/mc/servers/:id/pregen/install', (req, res) => res.json({ job: this.installChunky(req.params.id).id }));
     r.post('/mc/servers/:id/pregen', (req, res) => res.json(this.startPregen(req.params.id, req.body || {})));
     r.post('/mc/servers/:id/pregen/:action', (req, res) => res.json(this.pregenAction(req.params.id, req.params.action)));
-    r.get('/mc/servers/:id/logfiles', (req, res) => res.json(this.logFiles(req.params.id)));
+    r.get('/mc/servers/:id/logfiles', (req, res) => { this.mc.get(req.params.id); res.json(this.logFiles(req.params.id)); });
     r.get('/mc/servers/:id/logfiles/:file', (req, res) => res.json(this.readLog(req.params.id, req.params.file, req.query)));
-    r.get('/mc/servers/:id/crash-reports', (req, res) => res.json(this.crashReports(req.params.id)));
+    r.get('/mc/servers/:id/crash-reports', (req, res) => { this.mc.get(req.params.id); res.json(this.crashReports(req.params.id)); });
     r.get('/mc/servers/:id/crash-reports/:file', (req, res) => res.json(this.crashReport(req.params.id, req.params.file)));
     r.post('/mc/servers/:id/copy', (req, res) => res.json({ job: this.copyServer(req.params.id, req.body || {}).id }));
     r.post('/mc/servers/:id/players/transfer', (req, res) => res.json(this.transferPlayers(req.params.id, req.body || {})));

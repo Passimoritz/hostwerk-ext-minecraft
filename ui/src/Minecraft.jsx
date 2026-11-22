@@ -20,6 +20,7 @@ import { useAreaTabs } from '@hostwerk/kit';
 import { OverrideSlot } from '@hostwerk/kit';
 import { BedrockCreateFields, BedrockPickInfo, isBedrock } from './McBedrock';
 import { t as T } from '@hostwerk/i18n';
+import { dec } from './num';
 
 export const TYPE_COLORS = { paper: '#3b82f6', purpur: '#a855f7', spigot: '#f59e0b', vanilla: '#22c55e', folia: '#14b8a6', fabric: '#c9a66b', neoforge: '#f97316', forge: '#818cf8', modpack: '#ec4899', velocity: '#0ea5e9', bedrock: '#65a30d', custom: '#64748b' };
 const NO_VERSIONS = ['custom', 'modpack'];
@@ -182,7 +183,7 @@ export function CreateServer({ onClose }) {
       ) : (
         <div className="stack">
           {f.type === 'bedrock' ? <BedrockCreateFields f={f} set={set} /> : <>
-          <Field label={`Memory: ${(f.memMax / 1024).toFixed(1).replace('.', ',')} GB`} hint={sys ? `Your PC has ${fmtBytes(sys.totalMem)} RAM. Recommended: ${['modpack', 'neoforge', 'forge'].includes(f.type) ? 'modpacks and big mods 6–10 GB' : '4–8 GB'}.` : ''}>
+          <Field label={`Memory: ${dec(f.memMax / 1024)} GB`} hint={sys ? `Your PC has ${fmtBytes(sys.totalMem)} RAM. Recommended: ${['modpack', 'neoforge', 'forge'].includes(f.type) ? 'modpacks and big mods 6–10 GB' : '4–8 GB'}.` : ''}>
             <input className="range" type="range" min={1024} max={Math.max(2048, Math.min(maxMem, 32768))} step={512} value={f.memMax} onChange={(e) => set({ memMax: Number(e.target.value) })} />
           </Field>
           {f.type === 'velocity' ? (
@@ -271,7 +272,7 @@ export default function Minecraft({ tab }) {
                 <div className="svc-meta">
                   <div><div className="k">Address</div><div className="v mono small">localhost:{s.port}</div></div>
                   <div><div className="k">Players</div><div className="v">{s.proc.state === 'running' ? `${players.length}${s.maxPlayers ? ' / ' + s.maxPlayers : ''}` : '–'}</div></div>
-                  {isBedrock(s) ? <div><div className="k">Port</div><div className="v">{T(`${s.port} UDP`)}</div></div> : <div><div className="k">RAM</div><div className="v">{(s.memMax / 1024).toFixed(1).replace('.', ',')} GB</div></div>}
+                  {isBedrock(s) ? <div><div className="k">Port</div><div className="v">{T(`${s.port} UDP`)}</div></div> : <div><div className="k">RAM</div><div className="v">{dec(s.memMax / 1024)} GB</div></div>}
                   {s.proc.extra.tps != null && s.proc.state === 'running' && <div><div className="k">TPS</div><div className="v" style={{ color: s.proc.extra.tps >= 19.5 ? 'var(--ok)' : 'var(--warn)' }}>{s.proc.extra.tps}</div></div>}
                 </div>
                 <ProcStats proc={s.proc} svc={`mc:${s.id}`} compact />

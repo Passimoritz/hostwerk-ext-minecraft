@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, Download, Star, CheckCircle2, ExternalLink, Store, Puzzle, Clock, Image as ImageIcon, FileText, ListOrdered, Link2 } from 'lucide-react';
 import { get, post, waitJob, fmtNumber, fmtDate, openExternal } from '@hostwerk/api';
 import { Btn, Seg, Tabs, Modal, Loading, Empty, Callout, toast, InfoTip } from '@hostwerk/ui';
-import { Markdown } from '@hostwerk/kit';
+import { Markdown, Keep } from '@hostwerk/kit';
 import { LazyImg } from '@hostwerk/kit';
 import { t as T } from '@hostwerk/i18n';
 
@@ -69,7 +69,7 @@ function Detail({ s, hit, onClose, onInstalled }) {
             ...(d.gallery.length ? [{ id: 'gallery', label: T('Images'), icon: ImageIcon, badge: d.gallery.length }] : []),
             { id: 'links', label: 'Links', icon: Link2 },
           ]} />
-          {tab === 'about' && <div style={{ maxHeight: '52vh', overflow: 'auto' }}>{d.body ? <Markdown text={d.body} /> : <p className="muted">{d.description}</p>}</div>}
+          {tab === 'about' && <div style={{ maxHeight: '52vh', overflow: 'auto' }}>{d.body ? <Markdown text={d.body} /> : <p className="muted"><Keep>{d.description}</Keep></p>}</div>}
           {tab === 'versions' && (
             <div style={{ maxHeight: '52vh', overflow: 'auto' }}>
               {d.versions.map((x) => (
@@ -158,12 +158,12 @@ export default function MarketTab({ s, onInstalled }) {
                   <div className="row-tight" style={{ gap: 10, alignItems: 'flex-start' }}>
                     <LazyImg src={h.icon} className="ph" fallback={<div className="ph"><Puzzle size={20} /></div>} />
                     <div className="grow" style={{ minWidth: 0, textAlign: 'left' }}>
-                      <div className="bold ellipsis">{h.title}</div>
-                      <div className="tiny muted ellipsis">of {h.author}</div>
+                      <div className="bold ellipsis"><Keep>{h.title}</Keep></div>
+                      <div className="tiny muted ellipsis">of <Keep>{h.author}</Keep></div>
                     </div>
                     {h.installed && <span className="badge ok" title={h.installed.file}><CheckCircle2 size={11} /> installed</span>}
                   </div>
-                  <div className="small muted market-desc">{h.description}</div>
+                  <div className="small muted market-desc"><Keep>{h.description}</Keep></div>
                   <div className="row-tight tiny muted" style={{ gap: 10, flexWrap: 'wrap' }}>
                     <span><Download size={11} /> {fmtNumber(h.downloads)}</span>
                     {h.follows > 0 && <span><Star size={11} /> {fmtNumber(h.follows)}</span>}

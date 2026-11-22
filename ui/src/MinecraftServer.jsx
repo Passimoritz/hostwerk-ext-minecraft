@@ -24,6 +24,8 @@ import { ExtSections } from '@hostwerk/kit';
 import { useSelection, SelectBox, SelectAll, BulkBar } from '@hostwerk/kit';
 import { BedrockOverview, BedrockConsole, BedrockSettings, BedrockPlayers, BedrockWorlds, BedrockVersion, isBedrock } from './McBedrock';
 import { t as T, pl } from '@hostwerk/i18n';
+import { AddressRows } from './McAddress';
+import { dec } from './num';
 
 const COMMANDS = ['list', 'say ', 'op ', 'deop ', 'kick ', 'ban ', 'pardon ', 'whitelist add ', 'whitelist remove ', 'whitelist on', 'whitelist off', 'gamemode creative ', 'gamemode survival ', 'time set day', 'time set night', 'weather clear', 'difficulty ', 'save-all', 'tps', 'plugins', 'reload confirm', 'stop', 'tp ', 'give ', 'kill ', 'gamerule '];
 
@@ -46,9 +48,7 @@ function ConsoleTab({ s }) {
         )}
         <div className="card card-pad stack" style={{ gap: 8 }}>
           <div className="label">Connect</div>
-          {[s.address.local, ...s.address.lan].map((a) => (
-            <div key={a} className="row-tight"><code className="grow ellipsis">{a}</code><button className="btn ghost xs icon" title="Copy" aria-label="Copy" onClick={() => { navigator.clipboard.writeText(a); toast.success('Address copied'); }}><Copy /></button></div>
-          ))}
+          <AddressRows s={s} />
           <div className="tiny muted">For friends outside your network you need to forward port {s.port} in your router.</div>
         </div>
         <div className="card card-pad stack" style={{ gap: 8 }}>
@@ -217,7 +217,7 @@ function SettingsTab({ s }) {
           <div className="card-body">
             <div className="form-grid">
               <Field label="Name" className="span-2"><input className="input" value={cfg.name} onChange={(e) => setCfg({ ...cfg, name: e.target.value })} /></Field>
-              <Field label={`Max. RAM: ${(cfg.memMax / 1024).toFixed(1).replace('.', ',')} GB`} className="span-2" hint={sys.data ? `PC: ${fmtBytes(sys.data.totalMem)} total, ${fmtBytes(sys.data.freeMem)} free. Rule of thumb: 2–4 GB for small servers, 6–10 GB with many plugins/mods.` : ''}>
+              <Field label={`Max. RAM: ${dec(cfg.memMax / 1024)} GB`} className="span-2" hint={sys.data ? `PC: ${fmtBytes(sys.data.totalMem)} total, ${fmtBytes(sys.data.freeMem)} free. Rule of thumb: 2–4 GB for small servers, 6–10 GB with many plugins/mods.` : ''}>
                 <input className="range" type="range" min={1024} max={sys.data ? Math.max(2048, Math.floor(sys.data.totalMem / 1048576 / 512) * 512) : 16384} step={512} value={cfg.memMax} onChange={(e) => setCfg({ ...cfg, memMax: Number(e.target.value) })} />
               </Field>
               <Field label="Start RAM (MB)" hint="Reserved at start. Same as max. = fewer stutters."><input className="input" type="number" value={cfg.memMin} onChange={(e) => setCfg({ ...cfg, memMin: Number(e.target.value) })} /></Field>
@@ -517,7 +517,7 @@ function PluginsTab({ s }) {
                   {updates && updates[p.file] && !updates[p.file].known && <span className="badge" style={{ marginLeft: 6 }} title="Not on Modrinth/Hangar – link it below with GitHub, SpigotMC, Jenkins or a link">unknown</span>}
                 {updates && updates[p.file] && updates[p.file].external && <span className="badge warn" style={{ marginLeft: 6 }} title="Download only on the vendor page">external</span>}
                 </div>
-                <div className="small muted ellipsis">{p.description || p.file}</div>
+                <div className="small muted ellipsis"><Keep>{p.description || p.file}</Keep></div>
               </div>
               {updates && updates[p.file] && updates[p.file].update && <Btn className="xs" icon={ArrowUpCircle} onClick={() => runUpdate(p.file)}>Update</Btn>}
               <PluginFolderButton s={s} p={p} mods={mods} />
@@ -555,7 +555,7 @@ function PluginsTab({ s }) {
                     <LazyImg src={apiUrl(p.icon)} className="ph" fallback={<div className="ph" />} />
                     <div className="grow" style={{ minWidth: 0 }}>
                       <div className="row-tight"><b className="ellipsis">{p.name}</b>{p.version && <span className="tiny muted">{p.version}</span>}<span className="src-chip src-hostwerk">From Hostwerk</span></div>
-                      <div className="small muted">{p.disabled ? 'Installed, but turned off. ' : ''}{p.description}</div>
+                      <div className="small muted">{p.disabled ? 'Installed, but turned off. ' : ''}<Keep>{p.description}</Keep></div>
                     </div>
                     <Btn className="sm primary" icon={p.disabled ? Power : Plus} onClick={async () => { try { await post(`/mc/servers/${s.id}/live-update/bridge`); toast.success(T(p.disabled ? '{name} turned on' : '{name} installed', { name: p.name }) + (running ? T(' – takes effect after the next restart') : '')); list.reload(); window.dispatchEvent(new CustomEvent('hw:mc-plugins', { detail: { id: s.id } })); } catch (e) { toast.error(e.message); } }}>{p.disabled ? 'Turn on' : 'Install'}</Btn>
                   </div>
@@ -570,7 +570,7 @@ function PluginsTab({ s }) {
                 <LazyImg src={r.icon} className="ph" fallback={<div className="ph" />} />
                 <div className="grow" style={{ minWidth: 0 }}>
                   <div className="row-tight"><b className="ellipsis">{r.title}</b><span className="tiny muted">of {r.author}</span></div>
-                  <div className="small muted" title={r.description} style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.description}</div>
+                  <div className="small muted" title={r.description} style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}><Keep>{r.description}</Keep></div>
                   <div className="tiny muted mt" style={{ marginTop: 4 }}><Download size={11} /> {fmtNumber(r.downloads)}</div>
                 </div>
                 <Btn className="sm" icon={Plus} onClick={async () => { await post(`/mc/servers/${s.id}/modrinth`, { projectId: r.id }); toast(`Installing ${r.title} …`); setTimeout(list.reload, 2500); setTimeout(list.reload, 6000); }}>Install</Btn>
@@ -639,6 +639,21 @@ function BackupsTab({ s }) {
   const nightly = useApi(`/mc/servers/${s.id}/nightly-backup`, [s.id], { live: false });
   const nc = (nightly.data && nightly.data.config) || null;
   const saveNightly = async (patch) => { try { nightly.setData(await put(`/mc/servers/${s.id}/nightly-backup`, patch)); } catch (e) { toast.error(e.message); } };
+  const [restoring, setRestoring] = useState(null);
+  const [damaged, setDamaged] = useState({}); // Datei -> Fehlertext (Sicherung ließ sich nicht lesen)
+  // Erst das ZIP prüfen (nur Inhaltsverzeichnis), dann fragen, dann auf das Ende warten und das Ergebnis melden
+  const restore = async (b) => {
+    setRestoring(b.file);
+    try {
+      const chk = await get(`/mc/servers/${s.id}/backups/check?file=${encodeURIComponent(b.file)}`);
+      if (!chk.ok) { setDamaged((d) => ({ ...d, [b.file]: chk.error })); toast.error(chk.error); return; }
+      if (!(await confirmDialog({ title: 'Restore backup?', text: T(`The current state will be replaced by “${b.file}”. A safety backup is created automatically first.`), confirm: 'Restore', danger: true }))) return;
+      const r = await post(`/mc/servers/${s.id}/backups/restore`, { file: b.file });
+      toast('Restore running …');
+      await waitJob(r.job);
+      toast.success(T(`Backup “${b.file}” restored`));
+    } catch (e) { toast.error(e.message); } finally { setRestoring(null); list.reload(); }
+  };
   const sel = useSelection((list.data || []).map((b) => b.file));
   const removeSel = async () => {
     if (!(await confirmDialog({ title: `Delete ${sel.size} backups?`, text: sel.list.join('\n'), confirm: 'Delete', danger: true }))) return;
@@ -662,10 +677,10 @@ function BackupsTab({ s }) {
             {list.data.map((b) => (
               <tr key={b.file} className={sel.has(b.file) ? 'picked' : ''}>
                 <td><SelectBox sel={sel} id={b.file} label={b.file} /></td>
-                <td className="mono small">{b.file}</td><td>{fmtDate(b.time)}</td><td className="num">{b.sizeText}</td>
+                <td className="mono small">{b.file}{damaged[b.file] && <span className="pill err xs" title={damaged[b.file]}>damaged</span>}</td><td>{fmtDate(b.time)}</td><td className="num">{fmtBytes(b.size)}</td>
                 <td className="actions">
                   <a className="btn ghost xs" href={`/api/mc/servers/${s.id}/backups/${encodeURIComponent(b.file)}/download`}><Download />Download</a>
-                  <Btn className="ghost xs" icon={RotateCcw} disabled={s.proc.state !== 'stopped' && s.proc.state !== 'error'} title={s.proc.state === 'running' ? 'Stop the server first' : ''} onClick={async () => { if (await confirmDialog({ title: 'Restore backup?', text: `The current state will be replaced by “${b.file}”. A safety backup is created automatically first.`, confirm: 'Restore', danger: true })) { await post(`/mc/servers/${s.id}/backups/restore`, { file: b.file }); toast('Restore running …'); setTimeout(list.reload, 4000); } }}>Restore</Btn>
+                  <Btn className="ghost xs" icon={RotateCcw} busy={restoring === b.file} disabled={!!damaged[b.file] || (restoring && restoring !== b.file) || (s.proc.state !== 'stopped' && s.proc.state !== 'error')} title={damaged[b.file] || (s.proc.state === 'running' ? 'Stop the server first' : '')} onClick={() => restore(b)}>Restore</Btn>
                   <Btn className="ghost xs icon" icon={Trash2} title="Delete" onClick={async () => { if (await confirmDialog({ title: 'Delete backup?', text: b.file, confirm: 'Delete', danger: true })) list.setData(await del(`/mc/servers/${s.id}/backups/${encodeURIComponent(b.file)}`)); }} />
                 </td>
               </tr>
@@ -753,7 +768,7 @@ export default function MinecraftServer({ id, tab = 'overview', query = '' }) {
     { id: 'network', label: T('Network'), icon: Network, subs: [['network']] },
     { id: 'console', label: T('Console'), icon: TerminalSquare, subs: [['console', 'Live', TerminalSquare], ['logs', T('Older logs'), History]] },
     { id: 'plugins', label: 'Plugins', icon: Puzzle, subs: [['plugins', T('Installed'), Puzzle], ['market', T('Marketplace'), Store]] },
-    { id: 'settings', label: T('Settings'), icon: Settings2, subs: [['automation', T('Schedule & check'), CalendarClock], ['tools', T('Copy & lists'), Wrench], ['version', 'Version', ArrowUpCircle], ['tools', T('Copy & lists'), Wrench]] },
+    { id: 'settings', label: T('Settings'), icon: Settings2, subs: [['automation', T('Schedule & check'), CalendarClock], ['tools', T('Copy & lists'), Wrench], ['version', 'Version', ArrowUpCircle]] },
     { id: 'files', label: T('Files'), icon: FolderOpen, subs: [['files', T('Files'), FolderOpen], ['backups', T('Backups'), Archive]] },
   ] : [
     { id: 'overview', label: T('Overview'), icon: LayoutDashboard, subs: [['overview']] },
@@ -761,11 +776,13 @@ export default function MinecraftServer({ id, tab = 'overview', query = '' }) {
     { id: 'players', label: T('Players'), icon: Users, badge: playerCount(s), subs: [['players', T('Administration'), Users], ['stats', T('Statistics'), BarChart3]] },
     { id: 'plugins', label: s.content === 'mods' ? 'Mods' : 'Plugins', icon: Puzzle, subs: [['plugins', T('Installed'), Puzzle], ...(s.pluginsSupported ? [['market', T('Marketplace'), Store]] : []), ...(s.content !== 'mods' && s.pluginsSupported ? [['configs', T('Settings'), SlidersHorizontal]] : [])] },
     { id: 'worlds', label: T('World'), icon: Globe2, subs: [['worlds', T('Worlds & rules'), Globe2], ['datapacks', 'Datapacks', Package], ['map', T('Map'), MapIcon]] },
-    { id: 'settings', label: T('Settings'), icon: Settings2, subs: [['settings', 'Server', Settings2], ['automation', T('Schedule & check'), CalendarClock], ['version', 'Version', ArrowUpCircle]] },
+    { id: 'settings', label: T('Settings'), icon: Settings2, subs: [['settings', 'Server', Settings2], ['automation', T('Schedule & check'), CalendarClock], ['tools', T('Copy & lists'), Wrench], ['version', 'Version', ArrowUpCircle]] },
     { id: 'files', label: T('Files'), icon: FolderOpen, subs: [['files', T('Files'), FolderOpen], ['backups', T('Backups'), Archive]] },
   ];
   for (const x of contrib.tabs) groups.push({ id: x.key, label: x.label, icon: x.icon, subs: [[x.key]] });
   const group = groups.find((g) => g.subs.some(([sid]) => sid === tab)) || groups[0];
+  // Unbekannter Reiter (alte Adresse, Tippfehler, Reiter dieser Server-Art fehlt): Übersicht statt leerer Seite
+  if (!groups.some((g) => g.subs.some(([sid]) => sid === tab))) tab = 'overview';
   const tabs = groups.map(({ subs, ...g }) => g);
   const go = (t) => { location.hash = `/mc/${s.id}/${t}`; };
   return (
@@ -773,7 +790,7 @@ export default function MinecraftServer({ id, tab = 'overview', query = '' }) {
       <div className="page-head">
         <div>
           <h1><SvcImage kind="mc" id={s.id} name={s.name} className="ico" size={30} fallback={<Box size={22} style={{ color: '#23964a' }} />} /> <Keep>{s.name}</Keep> <FavButton kind="mc" id={s.id} /> <StatusPill state={s.proc.state} label={s.proc.state === 'running' && !s.proc.extra.ready ? 'Loading world …' : undefined} /></h1>
-          <p>{bedrock ? T(`${s.typeLabel} ${s.version || ''} · UDP-Port ${s.port}`) : <>{s.modpack ? `Modpack ${s.modpack.name} · ` : ''}{s.typeLabel} {s.version}{s.build ? ` (${s.content === 'mods' ? 'Loader' : 'Build'} ${s.build})` : ''} · Java {s.javaMajor} · {(s.memMax / 1024).toFixed(1).replace('.', ',')} GB RAM · port {s.port}</>} <SourceLink url={s.modpack && s.modpack.projectId ? `https://modrinth.com/project/${s.modpack.projectId}` : s.homepage} /></p>
+          <p>{bedrock ? `${s.typeLabel} ${s.version || ''} · ${T('UDP port {port}', { port: s.port })}` : <>{s.modpack ? `Modpack ${s.modpack.name} · ` : ''}{s.typeLabel} {s.version}{s.build ? ` (${s.content === 'mods' ? 'Loader' : 'Build'} ${s.build})` : ''} · Java {s.javaMajor} · {dec(s.memMax / 1024)} GB RAM · port {s.port}</>} <SourceLink url={s.modpack && s.modpack.projectId ? `https://modrinth.com/project/${s.modpack.projectId}` : s.homepage} /></p>
         </div>
         <div className="actions">
           {isElectron && <Btn className="ghost" icon={ExternalLink} onClick={() => post('/app/open-path', { path: s.dir })}>Folder</Btn>}

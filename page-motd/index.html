@@ -3,12 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Baukasten gleich mitladen (sonst erst durch das SDK): unter Last kam er im Abschnitt zu spät oder gar nicht – ungestylt -->
+  <link rel="stylesheet" href="/ext-sdk.css" data-hostwerk-kit>
   <script src="/ext-sdk.js"></script>
   <link rel="stylesheet" href="motd.css">
 </head>
 <body>
   <section data-tab="editor">
-    <div class="row server-row"><label class="label" for="server" data-i18n="motd.server">Server</label><select class="select" id="server" aria-label="Server"></select></div>
+    <div class="row server-row"><label class="label" for="server" data-i18n="motd.server">Server</label><select class="select" id="server" aria-label="Server" data-i18n-aria-label="motd.server"></select></div>
     <div id="editor"><div class="hw-skeleton" style="height:160px"></div></div>
   </section>
   <section data-tab="codes">

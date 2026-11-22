@@ -25,3 +25,7 @@
 .motd-embed { padding: 0; }
 .motd-section { padding: var(--sp-3) var(--sp-4); gap: var(--sp-2); }
 .motd-section-foot { gap: var(--sp-2); flex-wrap: wrap; }
+/* Format-Knöpfe als Gruppe: brechen gemeinsam um statt einzeln (B/I/U/S vereinzelt in der nächsten Zeile) */
+.motd-swatches, .motd-fmt { display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; }
+.motd-fmt { flex-wrap: nowrap; }
+.motd-more #mini { white-space: nowrap; }

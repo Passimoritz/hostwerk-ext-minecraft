@@ -206,7 +206,7 @@ function renderEditor() {
         </div>
         <label class="label" for="motd">${t('text')}</label>
         <textarea class="input mono" id="motd" rows="3">${value}</textarea>
-        <div class="motd-tools" role="toolbar" aria-label="${t('toolbar')}">${CODES.map((c) => html`<button type="button" class="swatch" data-code="${c}" title="${`§${c} ${t('color.' + c)}`}" aria-label="${t('color.' + c)}" style="${`background:${M.COLORS[c]}`}"></button>`)}${FMT.map(([c, l, k]) => html`<button type="button" class="btn sm ghost" data-code="${c}" title="${`§${c} ${t('fmt.' + k)}`}" aria-label="${t('fmt.' + k)}">${l}</button>`)}</div>
+        <div class="motd-tools" role="toolbar" aria-label="${t('toolbar')}"><span class="motd-swatches">${CODES.map((c) => html`<button type="button" class="swatch" data-code="${c}" title="${`§${c} ${t('color.' + c)}`}" aria-label="${t('color.' + c)}" style="${`background:${M.COLORS[c]}`}"></button>`)}</span><span class="motd-fmt">${FMT.map(([c, l, k]) => html`<button type="button" class="btn sm ghost" data-code="${c}" title="${`§${c} ${t('fmt.' + k)}`}" aria-label="${t('fmt.' + k)}">${l}</button>`)}</span></div>
         <div class="motd-tools" role="toolbar" aria-label="${t('placeholders')}">
           <span class="label">${t('placeholders')}</span>
           ${M.PLACEHOLDERS.map((k) => html`<button type="button" class="btn xs ghost mono" data-ph="${k}" title="${t('ph.' + k)}">{${k}}</button>`)}

@@ -126,8 +126,8 @@ class CurseForge {
         loaded++;
       }
       // overrides (Einstellungen, Skripte) übernehmen – ohne reine Spiel-Ordner
-      const ov = path.join(tmp, manifest.overrides || 'overrides');
-      if (fs.existsSync(ov)) for (const e of fs.readdirSync(ov)) if (!['resourcepacks', 'shaderpacks', 'screenshots', 'options.txt'].includes(e)) fs.cpSync(path.join(ov, e), path.join(dir, e), { recursive: true });
+      const ov = path.resolve(tmp, String(manifest.overrides || 'overrides'));
+      if (ov.startsWith(path.resolve(tmp) + path.sep) && fs.existsSync(ov)) for (const e of fs.readdirSync(ov)) if (!['resourcepacks', 'shaderpacks', 'screenshots', 'options.txt'].includes(e)) fs.cpSync(path.join(ov, e), path.join(dir, e), { recursive: true });
       job.log(skipped ? T('{loaded} mods loaded, {skipped} skipped (only for the game or not mods).', { loaded, skipped }) : T('{loaded} mods loaded.', { loaded }));
       const blocked = manual.filter((m) => !m.gone);
       if (blocked.length) job.log(T('Download by hand and put it into the “mods” folder (the author does not allow downloads through other programs): {v1}', { v1: blocked.map((m) => `${m.name} – ${m.url}`).join(' · ') }));

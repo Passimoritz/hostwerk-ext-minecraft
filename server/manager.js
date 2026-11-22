@@ -14,6 +14,8 @@ const { ClientPack } = require('./clientpack');
 const { PlayerStats } = require('./stats');
 const { Dimensions } = require('./dimensions');
 const { UpdateWatch } = require('./updatewatch');
+const { checkZip } = require('./zipcheck');
+const { lanAddresses } = require('./netlabel');
 const { runJob } = require('./hw').core('jobs');
 const { ManagedProcess, registry } = require('./hw').core('proc');
 const { isPortFree, findFreePort, whoUsesPort } = require('./hw').core('ports');
@@ -53,6 +55,16 @@ function writeProps(text, values) {
   });
   for (const [k, v] of Object.entries(values)) if (!done.has(k)) lines.push(`${k}=${String(v).replace(/[\r\n]/g, ' ')}`);
   return lines.join('\n').replace(/\n*$/, '\n');
+}
+
+/** Eingaben für server.properties prüfen: nur echte Schlüssel (kein Zeilenumbruch → keine fremden Zeilen), Ports 1–65535. */
+const PORT_KEYS = ['server-port', 'server-portv6', 'query.port', 'rcon.port'];
+function validPort(v) { const n = Number(v); return Number.isInteger(n) && n >= 1 && n <= 65535; }
+function checkProps(values) {
+  for (const k of Object.keys(values || {})) {
+    if (!/^[\w.-]+$/.test(k)) throw Object.assign(new Error(T('Invalid property name: {key}', { key: k.slice(0, 60) })), { status: 400 });
+    if (PORT_KEYS.includes(k) && String(values[k]).trim() !== '' && !validPort(values[k])) throw Object.assign(new Error(T('Port must be a number between 1 and 65535.')), { status: 400 });
+  }
 }
 
 /* ---------- Plugin-Metadaten aus JAR lesen ---------- */
@@ -126,11 +138,7 @@ function worldDims(full) {
   return out.sort((a, b) => rank(a.id) - rank(b.id) || a.id.localeCompare(b.id));
 }
 
-function lanIps() {
-  const out = [];
-  for (const list of Object.values(os.networkInterfaces())) for (const n of list || []) if (n.family === 'IPv4' && !n.internal) out.push(n.address);
-  return out;
-}
+function lanIps() { return lanAddresses(os.networkInterfaces()).map((x) => x.ip); }
 
 /*
  * Zwischenspeicher je JAR (Pfad + Größe + Änderungszeit): Metadaten, Symbol-Eintrag, SHA-1.
@@ -210,6 +218,8 @@ class MinecraftManager {
   }
   /** Serverordner – bei übernommenen Servern („am bisherigen Ort“) der ursprüngliche Ordner. */
   dir(id) {
+    // Kennungen sind Slugs – „..“ oder Schrägstriche in :id dürfen nie aus minecraft/ herausführen
+    if (!/^[\w-]+$/.test(String(id || ''))) throw Object.assign(new Error(T('Server not found')), { status: 404 });
     const s = this.list().find((x) => x.id === id);
     return (s && s.externalDir) || this.paths.mcDir(id);
   }
@@ -271,7 +281,7 @@ class MinecraftManager {
       motd: (bedrock ? props['server-name'] : props.motd) ?? null,
       maxPlayers: Number(props['max-players']) || null,
       onlineMode: props['online-mode'] !== 'false',
-      address: { local: `localhost:${s.port}`, lan: lanIps().map((ip) => `${ip}:${s.port}`) },
+      address: (() => { const l = lanAddresses(os.networkInterfaces()); return { local: `localhost:${s.port}`, lan: l.map((x) => `${x.ip}:${s.port}`), kinds: l.map((x) => x.kind) }; })(),
       javaInstalled: bedrock ? true : this.ctx.services.java.isInstalled(s.javaMajor),
       proc: p.info(),
     };
@@ -284,12 +294,13 @@ class MinecraftManager {
     if (providers[type].edition === 'bedrock') return this.bedrock.create(body);
     // Ein Proxy (Velocity) ist kein Minecraft-Server von Mojang – keine EULA nötig
     if (!body.eula && !providers[type].proxy) throw new Error(T('The Minecraft EULA must be accepted.'));
-    const name = String(body.name || '').trim() || 'Minecraft-Server';
+    const name = String(body.name || '').replace(/[\x00-\x1f\x7f]/g, ' ').trim().slice(0, 60) || 'Minecraft-Server';
     let id = slug(name);
     // Fortsetzung nach Absturz/Beenden: derselbe Ordner (halb geladene server.jar.part lädt dort weiter)
     if (body._id && /^[\w-]+$/.test(body._id) && !this.list().some((s) => s.id === body._id)) id = body._id;
     else while (this.list().some((s) => s.id === id) || fs.existsSync(this.dir(id))) id = slug(name) + '-' + crypto.randomBytes(2).toString('hex');
     const used = this.list().map((s) => s.port);
+    if (body.port != null && body.port !== '' && !validPort(body.port)) throw Object.assign(new Error(T('Port must be a number between 1 and 65535.')), { status: 400 });
     const port = Number(body._port) || Number(body.port) || (await findFreePort(25565, used));
     let version = body.version;
     // Modpack: Minecraft-Version und Loader stehen im Pack
@@ -669,6 +680,7 @@ class MinecraftManager {
   }
   setProperties(id, values) {
     const s = this.get(id);
+    checkProps(values);
     const f = path.join(this.dir(s.id), 'server.properties');
     fs.writeFileSync(f, writeProps(fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '', values));
     if (values['server-port'] && Number(values['server-port']) !== s.port) { s.port = Number(values['server-port']); this.settings.save(); }
@@ -804,9 +816,12 @@ class MinecraftManager {
   restore(id, file) {
     const s = this.get(id);
     if (this.proc(id).isRunning()) throw Object.assign(new Error(T('Please stop the server first.')), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'stop' } });
-    const zip = path.join(this.backupDir(id), path.basename(file));
-    if (!fs.existsSync(zip)) throw new Error(T('Backup not found.'));
+    const zip = path.join(this.backupDir(id), path.basename(String(file || '')));
+    if (!file || !fs.statSync(zip, { throwIfNoEntry: false })?.isFile()) throw new Error(T('Backup not found.'));
     return runJob(T('Restore backup for “{name}”', { name: s.name }), async (job) => {
+      job.progress(2, T('Checking backup …'));
+      const chk = await checkZip(zip);
+      if (!chk.ok) throw new Error(T('{error} The server is unchanged.', { error: chk.error }));
       job.progress(5, T('Safety backup of the current state …'));
       const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
       if (this.isBedrock(s)) {
@@ -818,8 +833,15 @@ class MinecraftManager {
       await zipDir(this.dir(id), path.join(this.backupDir(id), `${stamp}-vor-wiederherstellung.zip`), { exclude: ['session.lock'] });
       job.progress(50, T('Replacing files …'));
       const dir = this.dir(id);
-      for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f), { recursive: true, force: true });
-      await unzipTo(zip, dir);
+      // Erst neben dem Server entpacken – ein beschädigtes ZIP darf den Serverordner nicht leer zurücklassen
+      const stage = path.join(this.paths.cache, `mc-restore-${id}-${crypto.randomBytes(3).toString('hex')}`);
+      try {
+        try { await unzipTo(zip, stage); } catch (e) { throw new Error(T('The backup could not be unpacked – the server is unchanged. ({error})', { error: e.message })); }
+        for (const f of fs.readdirSync(dir)) fs.rmSync(path.join(dir, f), { recursive: true, force: true });
+        for (const f of fs.readdirSync(stage)) {
+          try { fs.renameSync(path.join(stage, f), path.join(dir, f)); } catch { fs.cpSync(path.join(stage, f), path.join(dir, f), { recursive: true }); }
+        }
+      } finally { fs.rmSync(stage, { recursive: true, force: true }); }
       return { ok: true };
     });
   }
@@ -1397,8 +1419,12 @@ class MinecraftManager {
     r.put('/mc/servers/:id', (req, res) => {
       const s = this.get(req.params.id);
       const b = req.body || {};
-      for (const k of ['name', 'jvmFlags', 'extraArgs']) if (typeof b[k] === 'string') s[k] = b[k];
-      for (const k of ['memMin', 'memMax', 'javaMajor', 'port']) if (b[k] != null && Number(b[k]) > 0) s[k] = Number(b[k]);
+      if (b.port != null && !validPort(b.port)) throw Object.assign(new Error(T('Port must be a number between 1 and 65535.')), { status: 400 });
+      // Leerer Name behält den alten (sonst stünde in Liste und Seitenleiste nichts)
+      if (typeof b.name === 'string' && b.name.replace(/[\x00-\x1f\x7f]/g, ' ').trim()) s.name = b.name.replace(/[\x00-\x1f\x7f]/g, ' ').trim().slice(0, 60);
+      for (const k of ['jvmFlags', 'extraArgs']) if (typeof b[k] === 'string') s[k] = b[k];
+      for (const k of ['memMin', 'memMax', 'javaMajor', 'port']) if (b[k] != null && Number(b[k]) > 0) s[k] = Math.round(Number(b[k]));
+      if (s.memMin > s.memMax) s.memMin = s.memMax; // Start nimmt ohnehin min(memMin, memMax) – so zeigt die Oberfläche denselben Wert
       for (const k of ['autostart', 'autoRestart', 'autoCheck', 'autoPluginUpdates', 'autoServerUpdates']) if (typeof b[k] === 'boolean') s[k] = b[k];
       if (typeof b.javaPath === 'string') s.javaPath = b.javaPath.trim() || undefined;
       this.settings.save();
@@ -1408,10 +1434,15 @@ class MinecraftManager {
     r.post('/mc/servers/:id/start', async (req, res) => { await this.start(req.params.id); res.json(this.info(this.get(req.params.id))); });
     r.post('/mc/servers/:id/stop', async (req, res) => { await this.stop(req.params.id); res.json(this.info(this.get(req.params.id))); });
     r.post('/mc/servers/:id/restart', async (req, res) => { await this.restart(req.params.id); res.json(this.info(this.get(req.params.id))); });
-    r.post('/mc/servers/:id/kill', async (req, res) => { await this.proc(req.params.id).kill(); res.json({ ok: true }); });
-    r.post('/mc/servers/:id/command', (req, res) => { this.command(req.params.id, String(req.body.command || '')); res.json({ ok: true }); });
-    r.get('/mc/servers/:id/logs', (req, res) => res.json(this.proc(req.params.id).logs));
-    r.get('/mc/servers/:id/stats', (req, res) => res.json(this.proc(req.params.id).statsHistory));
+    r.post('/mc/servers/:id/kill', async (req, res) => { this.get(req.params.id); await this.proc(req.params.id).kill(); res.json({ ok: true }); });
+    r.post('/mc/servers/:id/command', (req, res) => {
+      this.get(req.params.id);
+      // Leerer Befehl (oder nur „/“) schickte eine leere Zeile an den Server und stand als „> “ in der Konsole
+      const cmd = String((req.body || {}).command || '').trim();
+      if (!cmd.replace(/^\//, '')) throw Object.assign(new Error(T('Please enter a Minecraft command.')), { status: 400 });
+      this.command(req.params.id, cmd); res.json({ ok: true });
+    });
+    r.get('/mc/servers/:id/logs', (req, res) => { this.get(req.params.id); res.json(this.proc(req.params.id).logs); });
     r.get('/mc/servers/:id/properties', (req, res) => res.json(this.properties(req.params.id)));
     r.put('/mc/servers/:id/properties', (req, res) => {
       const before = this.properties(req.params.id).motd;
@@ -1432,6 +1463,7 @@ class MinecraftManager {
     // Schnellaktion „Neustart mit Countdown“: Spieler werden im Chat gewarnt (volle Minuten, 30, 10 und die letzten 5 s)
     r.post('/mc/servers/:id/restart-warn', (req, res) => {
       const id = req.params.id;
+      this.get(id);
       const secs = Math.max(0, Math.min(600, Math.round(Number((req.body || {}).seconds) || 0)));
       if (!this.proc(id).child) throw Object.assign(new Error(T('Server is not running.')), { status: 409, svc: { base: `/mc/servers/${id}`, action: 'start' } });
       const job = runJob(T('Restart of “{name}” in {secs} s', { name: this.get(id).name, secs }), async (j) => {
@@ -1449,9 +1481,15 @@ class MinecraftManager {
       res.json({ job: job.id });
     });
     r.post('/mc/servers/:id/version', (req, res) => res.json({ job: this.changeVersion(req.params.id, req.body || {}).id }));
-    r.get('/mc/servers/:id/backups', (req, res) => res.json(this.backups(req.params.id)));
+    r.get('/mc/servers/:id/backups', (req, res) => { this.get(req.params.id); res.json(this.backups(req.params.id)); });
     r.post('/mc/servers/:id/backups', (req, res) => res.json({ job: this.backup(req.params.id, req.body && req.body.label).id }));
-    r.post('/mc/servers/:id/backups/restore', (req, res) => res.json({ job: this.restore(req.params.id, req.body.file).id }));
+    r.get('/mc/servers/:id/backups/check', async (req, res) => {
+      this.get(req.params.id);
+      const zip = path.join(this.backupDir(req.params.id), path.basename(String(req.query.file || '')));
+      if (!req.query.file || !fs.statSync(zip, { throwIfNoEntry: false })?.isFile()) throw Object.assign(new Error(T('Backup not found.')), { status: 404 });
+      res.json(await checkZip(zip));
+    });
+    r.post('/mc/servers/:id/backups/restore', (req, res) => res.json({ job: this.restore(req.params.id, (req.body || {}).file).id }));
     r.delete('/mc/servers/:id/backups/:file', (req, res) => {
       fs.rmSync(path.join(this.backupDir(req.params.id), path.basename(req.params.file)), { force: true });
       res.json(this.backups(req.params.id));
@@ -1526,7 +1564,7 @@ class MinecraftManager {
     r.post('/mc/servers/:id/modrinth', (req, res) => res.json({ job: this.modrinthInstall(req.params.id, req.body.projectId).id }));
     r.get('/mc/servers/:id/players', (req, res) => res.json(this.playerLists(req.params.id)));
     r.get('/mc/servers/:id/worlds', (req, res) => res.json(this.worlds(req.params.id)));
-    r.get('/mc/servers/:id/dimensions', async (req, res) => res.json(await this.dims.forServer(req.params.id)));
+    r.get('/mc/servers/:id/dimensions', async (req, res) => { this.get(req.params.id); res.json(await this.dims.forServer(req.params.id)); });
     r.post('/mc/servers/:id/worlds/:name/reset', (req, res) => res.json({ job: this.resetWorld(req.params.id, req.params.name, (req.body || {}).dim || null).id }));
     r.get('/mc/servers/:id/worlds/:name/download', async (req, res) => {
       const f = await this.worldZip(req.params.id, req.params.name);
@@ -1550,6 +1588,7 @@ class MinecraftManager {
       const m = String((req.body || {}).png || '').match(/^data:image\/png;base64,(.+)$/);
       if (!m) throw new Error(T('Please provide a PNG image.'));
       const buf = Buffer.from(m[1], 'base64');
+      if (buf.length < 24 || buf.readUInt32BE(0) !== 0x89504e47) throw new Error(T('Please provide a PNG image.'));
       if (buf.readUInt32BE(16) !== 64 || buf.readUInt32BE(20) !== 64) throw new Error(T('The server icon must be exactly 64×64 pixels.'));
       fs.writeFileSync(path.join(this.dir(req.params.id), 'server-icon.png'), buf);
       require('./hw').core('events').broadcast({ type: 'icon', kind: 'mc', id: req.params.id, v: Date.now() });
@@ -1565,7 +1604,7 @@ class MinecraftManager {
     });
     r.get('/mc/servers/:id/map', (req, res) => res.json(this.mapStatus(req.params.id)));
     r.post('/mc/servers/:id/map', (req, res) => res.json({ job: this.setupMap(req.params.id).id }));
-    r.get('/mc/servers/:id/selftest', (req, res) => res.json(this.selfTests.get(req.params.id) || null));
+    r.get('/mc/servers/:id/selftest', (req, res) => { this.get(req.params.id); res.json(this.selfTests.get(req.params.id) || null); });
     r.post('/mc/servers/:id/selftest', (req, res) => res.json({ job: this.selfTest(req.params.id).id }));
     r.get('/mc/servers/:id/plugins/updates', async (req, res) => res.json(await this.pluginUpdates(req.params.id)));
     r.post('/mc/servers/:id/plugins/update', (req, res) => { const b = req.body || {}; res.json({ job: this.updatePlugins(req.params.id, Array.isArray(b.files) ? b.files.map(String).slice(0, 500) : b.file).id }); });
